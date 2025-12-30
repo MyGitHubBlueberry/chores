@@ -1,3 +1,5 @@
+namespace Shared.Models;
+
 public class ChoreAdmin
 {
     public int ChoreId { get; set; }

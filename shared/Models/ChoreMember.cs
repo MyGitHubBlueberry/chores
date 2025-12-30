@@ -1,3 +1,5 @@
+namespace Shared.Models;
+
 using System.ComponentModel.DataAnnotations.Schema;
 
 public class ChoreMember

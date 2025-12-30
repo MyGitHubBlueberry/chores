@@ -1,3 +1,5 @@
+namespace Shared.Models;
+
 using System.ComponentModel.DataAnnotations;
 
 public class User
@@ -5,7 +7,7 @@ public class User
     [Key]
     public int Id { get; set; }
 
-    [Required]
+    [Required, MinLength(5), MaxLength(20)]
     public required string Username { get; set; }
 
     [Required]
