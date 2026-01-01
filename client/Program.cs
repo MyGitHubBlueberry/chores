@@ -5,6 +5,8 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
+using Shared;
+
 namespace Client;
 
 class Program
@@ -45,8 +47,8 @@ class Program
             }
 
             //recieve
-            byte[] responceBytes = new byte[Shared.Shared.BUFF_SIZE];
-            char[] responceChars = new char[Shared.Shared.BUFF_SIZE];
+            byte[] responceBytes = new byte[RemoveMe.BUFF_SIZE];
+            char[] responceChars = new char[RemoveMe.BUFF_SIZE];
             int bytesRecieved;
             // StringBuilder builder = new();
             // while ((bytesRecieved = await sock.ReceiveAsync(responceBytes, token)) != 0)

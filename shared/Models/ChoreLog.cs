@@ -1,5 +1,7 @@
 namespace Shared.Models;
 
+using Shared.Enums;
+
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -13,7 +15,7 @@ public class ChoreLog
 
     public DateTime CompletedAt { get; set; } = DateTime.UtcNow;
     public TimeSpan Duration { get; set; }
-    // public ChoreStatus Status { get; set; } = ChoreStatus.Completed;
+    public ChoreStatus Status { get; set; } = ChoreStatus.Completed;
 
     [ForeignKey(nameof(ChoreId))]
     public Chore? Chore { get; set; }

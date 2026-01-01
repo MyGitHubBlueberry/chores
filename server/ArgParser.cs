@@ -1,13 +1,12 @@
-using System.Net;
-using System.Net.Sockets;
 using System;
 
+using Server.Networking;
 namespace Server.Args;
 
 public static class ArgParser {
     public static bool Parse(string[] args, out int port) {
         if (args.Length == 1) {
-            if (!int.TryParse(args[0], out port) && IsPortAvailable(port)) {
+            if (!int.TryParse(args[0], out port) && Listener.IsPortAvailable(port)) {
                 PrintUseage();
                 return false;
             }
@@ -22,14 +21,4 @@ public static class ArgParser {
         Console.WriteLine("USEAGE: ./server <port>");
     }
 
-    static bool IsPortAvailable(int port) {
-        TcpListener l = new TcpListener(IPAddress.Loopback, port);
-        try {
-            l.Start();
-        } catch {
-            return false;
-        }
-        l.Stop();
-        return true;
-    }
 }
