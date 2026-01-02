@@ -1,6 +1,6 @@
-namespace Shared.Models;
+namespace Shared.Database.Models;
 
-using Shared.Enums;
+using Shared.Database.Enums;
 
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;

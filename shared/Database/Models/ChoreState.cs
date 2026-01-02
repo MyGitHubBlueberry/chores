@@ -1,9 +1,9 @@
-namespace Shared.Models;
+namespace Shared.Database.Models;
 
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-public class ChoreDescription
+public class ChoreState
 {
     [Key]
     public int ChoreId { get; set; }
@@ -11,9 +11,6 @@ public class ChoreDescription
     [ForeignKey(nameof(ChoreId))]
     public Chore? Chore { get; set; }
 
-    [Required]
-    public string Title { get; set; } = string.Empty;
-
-    public string? Body { get; set; }
-    public string? AvatarUrl { get; set; }
+    public bool IsPaused { get; set; } = false;
+    public int NextMemberIdx { get; set; } = 0;
 }

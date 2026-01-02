@@ -2,7 +2,7 @@ namespace Database;
 
 using System;
 using Microsoft.EntityFrameworkCore;
-using Shared.Models;
+using Shared.Database.Models;
 
 public class Context : DbContext
 {

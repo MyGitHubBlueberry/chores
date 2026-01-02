@@ -1,4 +1,4 @@
-namespace Shared.Models;
+namespace Shared.Database.Models;
 
 public class ChoreAdmin
 {
