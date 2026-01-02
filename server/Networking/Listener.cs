@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 
 using Shared;
+using Shared.Networking;
 
 namespace Server.Networking;
 
@@ -13,16 +14,10 @@ public class Listener {
     public Listener(int port) {
         if (!IsPortAvailable(port)) 
             throw new ArgumentException();
-        endPoint = ConfigureEndPoint(port);
+        endPoint = ConnectionHelper.ConfigureEndPoint(port);
     }
 
-    IPEndPoint ConfigureEndPoint(int port) {
-        IPHostEntry localhost = Dns.GetHostEntry(Dns.GetHostName());
-        IPAddress localIpAddress = localhost.AddressList[0];
-        return new(localIpAddress, port);
-    }
-
-    public async void Listen() {
+    public async Task ListenAsync() {
         using Socket listener = new(
             endPoint.AddressFamily,
             SocketType.Stream,
