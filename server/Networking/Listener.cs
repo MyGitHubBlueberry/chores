@@ -1,34 +1,38 @@
 using System;
 using System.Net;
 using System.Net.Sockets;
-using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
-
 using Shared;
 using Shared.Networking;
 
 namespace Server.Networking;
 
-public class Listener {
-    IPEndPoint endPoint;
-    public Listener(int port) {
-        if (!IsPortAvailable(port)) 
+public class Listener : IDisposable
+{
+    readonly IPEndPoint endPoint;
+    Socket sock;
+
+    public Listener(int port)
+    {
+        if (!IsPortAvailable(port))
             throw new ArgumentException();
         endPoint = ConnectionHelper.ConfigureEndPoint(port);
+        sock = new(
+                endPoint.AddressFamily,
+                SocketType.Stream,
+                ProtocolType.Tcp);
     }
 
-    public async Task ListenAsync() {
-        using Socket listener = new(
-            endPoint.AddressFamily,
-            SocketType.Stream,
-            ProtocolType.Tcp);
-
-        listener.Bind(endPoint);
-        listener.Listen();
+    public async Task ListenAsync()
+    {
+        sock.Bind(endPoint);
+        sock.Listen();
 
         // List<Task> clients = new List<Task>();
-        while (true) {
-            var client = await listener.AcceptAsync();
+        while (true)
+        {
+            var client = await sock.AcceptAsync();
             Console.WriteLine("New client connected");
             _ = HandleClientAsync(client);
             // clients.Add(Task.Run(() => HandleClientAsync(handler)));
@@ -36,30 +40,56 @@ public class Listener {
         // Task.WaitAll(clients);
     }
 
-    async Task HandleClientAsync(Socket client) {
-        int bytesRead;
-        byte[] responceBytes = new byte[RemoveMe.BUFF_SIZE];
-        char[] responceChars = new char[RemoveMe.BUFF_SIZE];
-        while ((bytesRead = await client.ReceiveAsync(responceBytes)) != 0)
-        {
-            string recieved = Encoding.UTF8.GetString(responceBytes, 0, bytesRead); 
-            Console.WriteLine(recieved);
-            // builder.Append(responceChars, 0, charCount);
-            await client.SendAsync(Encoding.UTF8.GetBytes("Recieved"));
-        }
-        Console.WriteLine("Server is not longer listening to a client");
+    async Task HandleClientAsync(Socket client)
+    {
+        using NetworkStream stream = new NetworkStream(client, ownsSocket: true);
+        while
+            (await HandleClientPackets
+                (await PacketProtocol.ReadPacket(stream), stream)
+            ) { }
     }
 
-    public static bool IsPortAvailable(int port) {
-        if (port < IPEndPoint.MinPort || port > IPEndPoint.MaxPort) 
+    private async Task<bool> HandleClientPackets(ReadPacket packet, NetworkStream stream)
+    {
+        switch (packet.code)
+        {
+            case OpCode.Test:
+                Console.WriteLine("Test message");
+                Console.WriteLine($"Recieved json: {packet.jsonData}");
+                TestJson data;
+                data = JsonSerializer.Deserialize<TestJson>(packet.jsonData);
+                Console.WriteLine($"Recieved data is: {data?.age}, {data?.name}");
+                await PacketProtocol.SendPacketAsync(stream, new SendPacket<TestJson>(OpCode.Test, new TestJson(21, "NOT MAX")));
+                break;
+            case OpCode.Error:
+                Console.WriteLine("disconnected with error");
+                return false;
+            case OpCode.Disconnect:
+                Console.WriteLine("disconnected with read after end of stream");
+                return false;
+        }
+        return true;
+    }
+
+    public static bool IsPortAvailable(int port)
+    {
+        if (port < IPEndPoint.MinPort || port > IPEndPoint.MaxPort)
             return false;
         TcpListener l = new TcpListener(IPAddress.Loopback, port);
-        try {
+        try
+        {
             l.Start();
-        } catch {
+        }
+        catch
+        {
             return false;
         }
         l.Stop();
         return true;
+    }
+
+    public void Dispose()
+    {
+        throw new NotImplementedException();
     }
 }

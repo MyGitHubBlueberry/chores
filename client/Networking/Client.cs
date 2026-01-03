@@ -3,17 +3,19 @@ namespace Networking;
 using System;
 using System.Net;
 using System.Net.Sockets;
-using System.Text;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+
 using Shared;
 using Shared.Networking;
 
-public class Client
+public class Client : IDisposable
 {
-    readonly Socket sock;
     readonly IPEndPoint endPoint;
-    readonly CancellationTokenSource cancellationSource;
+    readonly CancellationTokenSource cts;
+    NetworkStream stream;
+    Socket sock;
 
     public Client()
     {
@@ -22,40 +24,105 @@ public class Client
             endPoint.AddressFamily,
             SocketType.Stream,
             ProtocolType.Tcp);
-        cancellationSource = new();
+        cts = new();
+        // cts.Token.Register(sock.Close);
     }
 
-    public async void ConnectAsync()
+    public async Task ConnectAsync()
     {
-        await sock.ConnectAsync(endPoint, cancellationSource.Token);
-    }
-
-    public async void SendAsync(string input)
-    {
-        byte[] data = Encoding.UTF8.GetBytes(input);
-        int bytesSent = 0;
-        while (bytesSent < data.Length)
+        if (sock.Connected) return;
+        try
         {
-            // as memory creates readonly view into array and bytesSent is starting offset
-            bytesSent += await sock.SendAsync(data.AsMemory(bytesSent));
-            Console.WriteLine($"Sending data: sent {bytesSent}; data {data.Length};");
+            await sock.ConnectAsync(endPoint, cts.Token);
+            stream = new NetworkStream(sock);
+            _ = RecieveLoopAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Connection failed: {ex.Message}");
         }
     }
 
-    public async Task<string> RecieveAsync()
+    public async Task SendAsync<T>(SendPacket<T> packet)
     {
-        byte[] responceBytes = new byte[RemoveMe.BUFF_SIZE];
-        char[] responceChars = new char[RemoveMe.BUFF_SIZE];
-        int bytesRecieved;
-        bytesRecieved = await sock.ReceiveAsync(responceBytes, cancellationSource.Token);
-        if (bytesRecieved == 0) 
-            return String.Empty;
-        return Encoding.UTF8.GetString(responceBytes, 0, bytesRecieved);
+        if (!sock.Connected || stream is null) return;
+
+        try
+        {
+            await PacketProtocol.SendPacketAsync(stream, packet);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Send failed: {ex.Message}");
+            Disconnect();
+        }
+    }
+
+    public async Task RecieveLoopAsync()
+    {
+        if (stream is null) return;
+
+        try
+        {
+            while (!cts.Token.IsCancellationRequested && sock.Connected)
+            {
+                if (!HandleResponces(await PacketProtocol.ReadPacket(stream))) 
+                    break;
+            }
+        }
+        catch (Exception ex) 
+        {
+            Console.WriteLine($"Exception recieving a message: {ex.Message}");
+        }
+        finally
+        {
+            Disconnect();
+        }
+    }
+
+    bool HandleResponces(ReadPacket packet)
+    {
+        switch (packet.code)
+        {
+            case OpCode.Test:
+                TestJson data = JsonSerializer.Deserialize<TestJson>(packet.jsonData);
+                Console.WriteLine($"Recieved data is: {data?.age}, {data?.name}");
+                break;
+            case OpCode.Error:
+                Console.WriteLine("Disconnect with error");
+                return false;
+            case OpCode.Disconnect:
+                Console.WriteLine("Disconnect with read after end of stream");
+                return false;
+            default:
+                Console.WriteLine("Not implemented");
+                break;
+        }
+        return true;
     }
 
     public void Disconnect()
     {
-        cancellationSource.Cancel();
-        sock.Shutdown(SocketShutdown.Both);
+        if (cts.IsCancellationRequested) return;
+
+        cts.Cancel();
+
+        if (sock.Connected)
+        {
+            try
+            {
+                sock.Shutdown(SocketShutdown.Both);
+            } catch {}
+        }
+        sock.Close();
+    }
+
+    public void Dispose()
+    {
+        Disconnect();
+        cts.Dispose();
+        stream?.Dispose();
+        sock.Dispose();
+        GC.SuppressFinalize(this);
     }
 }
