@@ -1,7 +1,9 @@
 using System;
+using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using Shared;
 using Shared.Networking;
@@ -12,6 +14,7 @@ public class Listener : IDisposable
 {
     readonly IPEndPoint endPoint;
     Socket sock;
+    CancellationTokenSource cts;
 
     public Listener(int port)
     {
@@ -22,31 +25,58 @@ public class Listener : IDisposable
                 endPoint.AddressFamily,
                 SocketType.Stream,
                 ProtocolType.Tcp);
+        cts = new();
     }
 
     public async Task ListenAsync()
     {
+        if (sock.IsBound) return;
+
         sock.Bind(endPoint);
         sock.Listen();
 
-        // List<Task> clients = new List<Task>();
-        while (true)
+
+        List<Task> clients = new List<Task>();
+        while (!cts.IsCancellationRequested)
         {
-            var client = await sock.AcceptAsync();
+            Socket client;
+            try
+            {
+                client = await sock.AcceptAsync(cts.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
             Console.WriteLine("New client connected");
-            _ = HandleClientAsync(client);
-            // clients.Add(Task.Run(() => HandleClientAsync(handler)));
+            clients.Add(HandleClientAsync(client, cts.Token));
+
+            clients.RemoveAll(t => t.IsCompleted);
         }
-        // Task.WaitAll(clients);
+        Console.WriteLine("Waiting for clients to finish.");
+        await Task.WhenAll(clients);
+        Console.WriteLine("All clients are finished. Closing server socket.");
+        sock.Close();
     }
 
-    async Task HandleClientAsync(Socket client)
+    async Task HandleClientAsync(Socket client, CancellationToken token)
     {
-        using NetworkStream stream = new NetworkStream(client, ownsSocket: true);
-        while
-            (await HandleClientPackets
-                (await PacketProtocol.ReadPacket(stream), stream)
-            ) { }
+        using NetworkStream stream = new NetworkStream(client);
+        try
+        {
+            while (!token.IsCancellationRequested)
+            {
+                if (!await HandleClientPackets
+                        (await PacketProtocol.ReadPacket(stream), stream))
+                    break;
+            }
+        }
+        catch { }
+        finally
+        {
+            client.Close();
+            client.Dispose();
+        }
     }
 
     private async Task<bool> HandleClientPackets(ReadPacket packet, NetworkStream stream)
@@ -56,10 +86,13 @@ public class Listener : IDisposable
             case OpCode.Test:
                 Console.WriteLine("Test message");
                 Console.WriteLine($"Recieved json: {packet.jsonData}");
-                TestJson data;
-                data = JsonSerializer.Deserialize<TestJson>(packet.jsonData);
+                TestJson? data = JsonSerializer.Deserialize<TestJson>(packet.jsonData);
                 Console.WriteLine($"Recieved data is: {data?.age}, {data?.name}");
-                await PacketProtocol.SendPacketAsync(stream, new SendPacket<TestJson>(OpCode.Test, new TestJson(21, "NOT MAX")));
+                await PacketProtocol
+                    .SendPacketAsync(stream,
+                            new SendPacket<TestJson>(
+                                OpCode.Test,
+                                new TestJson(21, "NOT " + data?.name)));
                 break;
             case OpCode.Error:
                 Console.WriteLine("disconnected with error");
@@ -88,8 +121,12 @@ public class Listener : IDisposable
         return true;
     }
 
+    public void Cancel() => cts?.Cancel();
+
     public void Dispose()
     {
-        throw new NotImplementedException();
+        cts.Cancel();
+        sock?.Dispose();
+        cts?.Dispose();
     }
 }

@@ -11,19 +11,32 @@ class Program
 {
     static async Task Main(string[] args)
     {
-        int port; 
+        int port;
         if (!ArgParser.Parse(args, out port))
             return;
 
         Listener listener;
-        try {
+        try
+        {
             listener = new Listener(port);
-        } catch (ArgumentException) {
+        }
+        catch (ArgumentException)
+        {
             Console.WriteLine("Invalid port");
             return;
         }
 
         using var db = new Database.Context();
+        _ = Task.Run(()
+                => {
+            ConsoleKeyInfo key;
+            do
+            {
+                key = Console.ReadKey();
+            }
+            while (key.KeyChar != 'q');
+            listener.Cancel();
+        });
         await listener.ListenAsync();
     }
 }
