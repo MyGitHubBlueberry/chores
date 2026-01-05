@@ -8,15 +8,15 @@ using System.Threading.Tasks;
 using Shared;
 using Shared.Networking;
 
-namespace Server.Networking;
+namespace Networking;
 
-public class Listener : IDisposable
+public class Server : IDisposable
 {
     readonly IPEndPoint endPoint;
     Socket sock;
     CancellationTokenSource cts;
 
-    public Listener(int port)
+    public Server(int port)
     {
         if (!IsPortAvailable(port))
             throw new ArgumentException();

@@ -1,11 +1,8 @@
 ﻿using System;
 
-namespace Server;
-
 using System.Threading.Tasks;
-using Server.Args;
-using Server.Networking;
-
+using Args;
+using Networking;
 
 class Program
 {
@@ -15,10 +12,10 @@ class Program
         if (!ArgParser.Parse(args, out port))
             return;
 
-        Listener listener;
+        Server server;
         try
         {
-            listener = new Listener(port);
+            server = new(port);
         }
         catch (ArgumentException)
         {
@@ -35,8 +32,8 @@ class Program
                 key = Console.ReadKey();
             }
             while (key.KeyChar != 'q');
-            listener.Cancel();
+            server.Cancel();
         });
-        await listener.ListenAsync();
+        await server.ListenAsync();
     }
 }

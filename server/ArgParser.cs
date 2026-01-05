@@ -1,7 +1,6 @@
 using System;
 
-using Server.Networking;
-namespace Server.Args;
+namespace Args;
 
 public static class ArgParser {
     public static bool Parse(string[] args, out int port) {
