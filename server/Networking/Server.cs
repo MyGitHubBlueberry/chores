@@ -5,8 +5,10 @@ using System.Net.Sockets;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Networking.Routing;
 using Shared;
 using Shared.Networking;
+
 
 namespace Networking;
 
@@ -14,9 +16,10 @@ public class Server : IDisposable
 {
     readonly IPEndPoint endPoint;
     Socket sock;
-    CancellationTokenSource cts;
+    CancellationToken token;
+    Router router;
 
-    public Server(int port)
+    public Server(int port, Router router, CancellationToken token)
     {
         if (!IsPortAvailable(port))
             throw new ArgumentException();
@@ -25,7 +28,8 @@ public class Server : IDisposable
                 endPoint.AddressFamily,
                 SocketType.Stream,
                 ProtocolType.Tcp);
-        cts = new();
+        this.token = token;
+        this.router = router;
     }
 
     public async Task ListenAsync()
@@ -37,19 +41,19 @@ public class Server : IDisposable
 
 
         List<Task> clients = new List<Task>();
-        while (!cts.IsCancellationRequested)
+        while (!token.IsCancellationRequested)
         {
             Socket client;
             try
             {
-                client = await sock.AcceptAsync(cts.Token);
+                client = await sock.AcceptAsync(token);
             }
             catch (OperationCanceledException)
             {
                 break;
             }
             Console.WriteLine("New client connected");
-            clients.Add(HandleClientAsync(client, cts.Token));
+            clients.Add(HandleClientAsync(client, token));
 
             clients.RemoveAll(t => t.IsCompleted);
         }
@@ -74,24 +78,16 @@ public class Server : IDisposable
 
     private async Task<bool> HandleClientPackets(ReadPacket packet, NetworkStream stream)
     {
-        switch (packet.code)
-        {
-            case OpCode.Test:
-                Console.WriteLine("Test message");
-                Console.WriteLine($"Recieved json: {packet.jsonData}");
-                TestJson? data = JsonSerializer.Deserialize<TestJson>(packet.jsonData);
-                Console.WriteLine($"Recieved data is: {data?.age}, {data?.name}");
-                await PacketProtocol
-                    .SendPacketAsync(stream,
-                            new SendPacket<TestJson>(
-                                OpCode.Test,
-                                new TestJson(21, "NOT " + data?.name)));
-                break;
-            case OpCode.Disconnect:
-                Console.WriteLine("Client disconnected");
-                return false;
+        if (packet.code == OpCode.Disconnect) {
+            Console.WriteLine("Client disconnected");
+            return false;
         }
-        return true;
+        var handler = router[packet.code];
+        if (handler is null) {
+            Console.WriteLine("Unknown request");
+            return false;
+        }
+        return await handler.Handle(stream, packet, token);
     }
 
     public static bool IsPortAvailable(int port)
@@ -111,12 +107,5 @@ public class Server : IDisposable
         return true;
     }
 
-    public void Cancel() => cts?.Cancel();
-
-    public void Dispose()
-    {
-        cts.Cancel();
-        sock?.Dispose();
-        cts?.Dispose();
-    }
+    public void Dispose() => sock?.Dispose();
 }

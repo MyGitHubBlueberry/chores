@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 
 using Shared;
 using Shared.Networking;
+using Shared.Networking.Packets.Debug;
 
 public class Client : IDisposable
 {
@@ -74,8 +75,8 @@ public class Client : IDisposable
         switch (packet.code)
         {
             case OpCode.Test:
-                TestJson? data = JsonSerializer.Deserialize<TestJson>(packet.jsonData);
-                Console.WriteLine($"Recieved data is: {data?.age}, {data?.name}");
+                TestResponse? data = JsonSerializer.Deserialize<TestResponse>(packet.jsonData);
+                Console.WriteLine($"Recieved data is: {data?.str}");
                 break;
             case OpCode.Disconnect:
                 Console.WriteLine("Disconnected");

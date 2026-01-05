@@ -90,7 +90,7 @@ public record SendPacket<T>(OpCode code, T data);
 public enum OpCode : byte
 {
     Login,
-    Signup,
+    Register,
     Test,
     Disconnect,
 }

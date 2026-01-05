@@ -2,8 +2,8 @@
 using System.Threading.Tasks;
 
 using Networking;
-using Shared;
 using Shared.Networking;
+using Shared.Networking.Packets.Debug;
 
 class Program
 {
@@ -22,8 +22,8 @@ class Program
                 break;
             }
 
-            TestJson data = new TestJson(age: 20, name: input);
-            SendPacket<TestJson> packet = new (OpCode.Test, data);
+            TestRequest data = new(input);
+            SendPacket<TestRequest> packet = new (OpCode.Test, data);
 
             await client.SendAsync(packet);
         }
