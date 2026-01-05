@@ -13,6 +13,7 @@ using Shared.Networking;
 public class Client : IDisposable
 {
     public bool IsConnected { get => sock?.Connected ?? false; }
+    public CancellationToken Token { get => cts.Token; }
 
     readonly IPEndPoint endPoint;
     readonly CancellationTokenSource cts;

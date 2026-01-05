@@ -65,7 +65,7 @@ public class Listener : IDisposable
         while (!token.IsCancellationRequested)
         {
             if (!await HandleClientPackets
-                    (await PacketProtocol.ReadPacket(stream), stream))
+                    (await PacketProtocol.ReadPacket(stream, token), stream))
                 break;
         }
         client.Close();

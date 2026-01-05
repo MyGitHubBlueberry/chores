@@ -36,7 +36,7 @@ public class PacketProtocol
         catch { }
     }
 
-    public static async Task<ReadPacket> ReadPacket(NetworkStream stream)
+    public static async Task<ReadPacket> ReadPacket(NetworkStream stream, CancellationToken token = default)
     {
         Debug.Assert(stream.CanRead);
 
@@ -44,7 +44,7 @@ public class PacketProtocol
 
         try
         {
-            await stream.ReadExactlyAsync(lenBytes, NO_OFFSET, LEN_PREFIX_LENGTH);
+            await stream.ReadExactlyAsync(lenBytes, NO_OFFSET, LEN_PREFIX_LENGTH, token);
         }
         catch (Exception e)
             when (e is EndOfStreamException or OperationCanceledException)
@@ -58,7 +58,7 @@ public class PacketProtocol
         byte[] opCodeBuf = new byte[OP_CODE_LENGTH];
         try
         {
-            await stream.ReadExactlyAsync(opCodeBuf, NO_OFFSET, OP_CODE_LENGTH);
+            await stream.ReadExactlyAsync(opCodeBuf, NO_OFFSET, OP_CODE_LENGTH, token);
         }
         catch (Exception e)
             when (e is EndOfStreamException or OperationCanceledException)
@@ -72,7 +72,7 @@ public class PacketProtocol
         byte[] payloadBuf = new byte[length];
         try
         {
-            await stream.ReadExactlyAsync(payloadBuf, NO_OFFSET, length);
+            await stream.ReadExactlyAsync(payloadBuf, NO_OFFSET, length, token);
         }
         catch (Exception e)
             when (e is EndOfStreamException or OperationCanceledException)
