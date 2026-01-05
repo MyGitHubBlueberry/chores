@@ -62,21 +62,14 @@ public class Listener : IDisposable
     async Task HandleClientAsync(Socket client, CancellationToken token)
     {
         using NetworkStream stream = new NetworkStream(client);
-        try
+        while (!token.IsCancellationRequested)
         {
-            while (!token.IsCancellationRequested)
-            {
-                if (!await HandleClientPackets
-                        (await PacketProtocol.ReadPacket(stream), stream))
-                    break;
-            }
+            if (!await HandleClientPackets
+                    (await PacketProtocol.ReadPacket(stream), stream))
+                break;
         }
-        catch { }
-        finally
-        {
-            client.Close();
-            client.Dispose();
-        }
+        client.Close();
+        client.Dispose();
     }
 
     private async Task<bool> HandleClientPackets(ReadPacket packet, NetworkStream stream)
@@ -94,11 +87,8 @@ public class Listener : IDisposable
                                 OpCode.Test,
                                 new TestJson(21, "NOT " + data?.name)));
                 break;
-            case OpCode.Error:
-                Console.WriteLine("disconnected with error");
-                return false;
             case OpCode.Disconnect:
-                Console.WriteLine("disconnected with read after end of stream");
+                Console.WriteLine("Client disconnected");
                 return false;
         }
         return true;

@@ -12,9 +12,11 @@ using Shared.Networking;
 
 public class Client : IDisposable
 {
+    public bool IsConnected { get => sock?.Connected ?? false; }
+
     readonly IPEndPoint endPoint;
     readonly CancellationTokenSource cts;
-    NetworkStream stream;
+    NetworkStream? stream;
     Socket sock;
 
     public Client()
@@ -25,59 +27,45 @@ public class Client : IDisposable
             SocketType.Stream,
             ProtocolType.Tcp);
         cts = new();
-        // cts.Token.Register(sock.Close);
     }
 
     public async Task ConnectAsync()
     {
         if (sock.Connected) return;
-        try
+
+        while (!cts.IsCancellationRequested && !sock.Connected)
         {
-            await sock.ConnectAsync(endPoint, cts.Token);
-            stream = new NetworkStream(sock);
-            _ = RecieveLoopAsync();
+            try
+            {
+                await sock.ConnectAsync(endPoint, cts.Token);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Connection failed: {ex.Message}");
+                Console.WriteLine($"Reconnecting...");
+                Thread.Sleep(1_000);
+            }
         }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Connection failed: {ex.Message}");
-        }
+        stream = new NetworkStream(sock);
+        _ = RecieveLoopAsync();
     }
 
     public async Task SendAsync<T>(SendPacket<T> packet)
     {
         if (!sock.Connected || stream is null) return;
-
-        try
-        {
-            await PacketProtocol.SendPacketAsync(stream, packet);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Send failed: {ex.Message}");
-            Disconnect();
-        }
+        await PacketProtocol.SendPacketAsync(stream, packet);
     }
 
     public async Task RecieveLoopAsync()
     {
         if (stream is null) return;
 
-        try
+        while (!cts.Token.IsCancellationRequested && sock.Connected)
         {
-            while (!cts.Token.IsCancellationRequested && sock.Connected)
-            {
-                if (!HandleResponces(await PacketProtocol.ReadPacket(stream))) 
-                    break;
-            }
+            if (!HandleResponces(await PacketProtocol.ReadPacket(stream)))
+                break;
         }
-        catch (Exception ex) 
-        {
-            Console.WriteLine($"Exception recieving a message: {ex.Message}");
-        }
-        finally
-        {
-            Disconnect();
-        }
+        Disconnect();
     }
 
     bool HandleResponces(ReadPacket packet)
@@ -85,14 +73,11 @@ public class Client : IDisposable
         switch (packet.code)
         {
             case OpCode.Test:
-                TestJson data = JsonSerializer.Deserialize<TestJson>(packet.jsonData);
+                TestJson? data = JsonSerializer.Deserialize<TestJson>(packet.jsonData);
                 Console.WriteLine($"Recieved data is: {data?.age}, {data?.name}");
                 break;
-            case OpCode.Error:
-                Console.WriteLine("Disconnect with error");
-                return false;
             case OpCode.Disconnect:
-                Console.WriteLine("Disconnect with read after end of stream");
+                Console.WriteLine("Disconnected");
                 return false;
             default:
                 Console.WriteLine("Not implemented");
@@ -112,7 +97,8 @@ public class Client : IDisposable
             try
             {
                 sock.Shutdown(SocketShutdown.Both);
-            } catch {}
+            }
+            catch { }
         }
         sock.Close();
     }

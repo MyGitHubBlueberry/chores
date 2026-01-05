@@ -13,7 +13,7 @@ class Program
         using var client = new Client();
         await client.ConnectAsync();
 
-        while (true)
+        while (client.IsConnected)
         {
             Console.Write("Type message: ");
             string input = Console.ReadLine()?.Trim() ?? "";
