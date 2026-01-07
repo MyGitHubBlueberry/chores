@@ -6,26 +6,27 @@ using Shared.Database.Models;
 
 public class Context : DbContext
 {
-    public DbSet<Chore> Chores { get; set; }
-    public DbSet<ChoreAdmin> ChoreAdmins { get; set; }
-    public DbSet<ChoreDescription> ChoreDescriptions { get; set; }
-    public DbSet<ChoreLog> ChoreLogs { get; set; }
-    public DbSet<ChoreMember> ChoreMembers { get; set; }
-    public DbSet<ChoreQueue> ChoreQueue { get; set; }
-    public DbSet<ChoreSchedule> ChoreSchedules { get; set; }
-    public DbSet<ChoreState> ChoreStates { get; set; }
-    public DbSet<User> Users { get; set; }
+    public DbSet<Chore> Chores => Set<Chore>();
+    public DbSet<ChoreAdmin> ChoreAdmins => Set<ChoreAdmin>();
+    public DbSet<ChoreDescription> ChoreDescriptions => Set<ChoreDescription>();
+    public DbSet<ChoreLog> ChoreLogs => Set<ChoreLog>();
+    public DbSet<ChoreMember> ChoreMembers => Set<ChoreMember>();
+    public DbSet<ChoreQueue> ChoreQueue => Set<ChoreQueue>();
+    public DbSet<ChoreSchedule> ChoreSchedules => Set<ChoreSchedule>();
+    public DbSet<ChoreState> ChoreStates => Set<ChoreState>();
+    public DbSet<User> Users => Set<User>();
 
-    public string DbPath { get; }
+    public Context(DbContextOptions<Context> options) : base (options) { }
+    public Context() { }
 
-    public Context() {
+    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder) {
+        if (optionsBuilder.IsConfigured) return;
+
         var folder = Environment.SpecialFolder.LocalApplicationData;
         var path = Environment.GetFolderPath(folder);
-        DbPath = System.IO.Path.Join(path, "chores.db");
+        var dbPath = System.IO.Path.Join(path, "chores.db");
+        optionsBuilder.UseSqlite($"Data Source={dbPath}");
     }
-
-    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder) 
-        => optionsBuilder.UseSqlite($"Data Source={DbPath}");
 
     protected override void OnModelCreating(ModelBuilder modelBuilder) {
         modelBuilder.Entity<ChoreMember>()
@@ -36,6 +37,8 @@ public class Context : DbContext
 
         ConfigureOneToManyRelations(modelBuilder);
         ConfigureOneToOneRelations(modelBuilder);
+
+        base.OnModelCreating(modelBuilder);
     }
 
     private void ConfigureOneToManyRelations(ModelBuilder modelBuilder) {

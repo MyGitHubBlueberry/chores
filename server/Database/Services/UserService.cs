@@ -56,20 +56,20 @@ public class UserService(Context db, CancellationToken token)
         return false;
     }
 
-    public async Task<ICollection<Chore>?> GetOwnedChoresByIdAsync(int id) =>
-        (await db.Users
-            .Include(u => u.OwnedChores)
-            .FirstOrDefaultAsync(u => u.Id == id))?.OwnedChores;
+    public async Task<ICollection<Chore>> GetOwnedChoresByIdAsync(int id) =>
+        await db.Chores
+            .Where(c => c.OwnerId == id)
+            .ToListAsync();
 
-    public async Task<ICollection<ChoreMember>?> GetMembershipsByIdAsync(int id) =>
-        (await db.Users
-            .Include(u => u.Memberships)
-            .FirstOrDefaultAsync(u => u.Id == id))?.Memberships;
+    public async Task<ICollection<ChoreMember>> GetMembershipsByIdAsync(int id) =>
+        await db.ChoreMembers
+            .Where(cm => cm.UserId == id)
+            .ToListAsync();
 
-    public async Task<ICollection<ChoreLog>?> GetAssotiatedLogsByIdAsync(int id) =>
-        (await db.Users
-            .Include(u => u.Logs)
-            .FirstOrDefaultAsync(u => u.Id == id))?.Logs;
+    public async Task<ICollection<ChoreLog>> GetAssociatedLogsByIdAsync(int id) =>
+        await db.ChoreLogs
+            .Where(cl => cl.UserId == id)
+            .ToListAsync();
 
     // public async Task<string> SetUserAwatarAsync(int id)
     // {
