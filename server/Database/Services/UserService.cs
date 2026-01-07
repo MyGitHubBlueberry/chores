@@ -8,8 +8,6 @@ using Shared.Database.Models;
 
 namespace Database.Services;
 
-//TODO: custom exceptions?
-// User doesn't exist
 public class UserService(Context db, CancellationToken token)
 {
     //TODO: change password to be hashed
@@ -28,7 +26,7 @@ public class UserService(Context db, CancellationToken token)
                 Username = username,
                 Password = Encoding.UTF8.GetBytes(password) //temporary
             };
-            await db.Users.AddAsync(user, token);
+            db.Users.Add(user);
             await db.SaveChangesAsync(token);
 
             await transaction.CommitAsync(token);
@@ -47,10 +45,14 @@ public class UserService(Context db, CancellationToken token)
     public async Task<bool> DeleteUserAsync(int id)
     {
         await using var transaction = await db.Database.BeginTransactionAsync(token);
+
         try
         {
-            return await db.Users.Where(u => u.Id == id)
+            var result = await db.Users.Where(u => u.Id == id)
                 .ExecuteDeleteAsync(token) != 0;
+            if (result)
+                await transaction.CommitAsync(token);
+            return result;
         }
         catch { }
         return false;
