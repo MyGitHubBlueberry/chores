@@ -29,6 +29,10 @@ public class Context : DbContext
     }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder) {
+        modelBuilder.Entity<User>()
+            .HasIndex(u => u.Username)
+            .IsUnique();
+
         modelBuilder.Entity<ChoreMember>()
             .HasKey(cm => new { cm.ChoreId, cm.UserId });
 
