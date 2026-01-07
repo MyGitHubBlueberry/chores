@@ -249,4 +249,50 @@ public class UserServiceTests
             Assert.Empty(context.Users);
         }
     }
+
+    [Fact]
+    public async Task User_Profile_Loads_All_Related_Data()
+    {
+        var (connection, options) = await DbTestHelper.SetupTestDbAsync();
+
+        User user;
+
+        using (var context = new Context(options))
+        {
+            user = new User { Username = "Worker", Password = new byte[]{1} };
+            context.Users.Add(user);
+            await context.SaveChangesAsync();
+
+            var chore = new Chore { OwnerId = user.Id, };
+            context.Chores.Add(chore);
+            await context.SaveChangesAsync();
+
+            var log = new ChoreLog { ChoreId = chore.Id, UserId = user.Id };
+            context.ChoreLogs.Add(log);
+
+            var member = new ChoreMember { ChoreId = chore.Id, UserId = user.Id };
+            context.ChoreMembers.Add(member);
+
+            var admin = new ChoreAdmin { ChoreId = chore.Id, UserId = user.Id };
+            context.ChoreAdmins.Add(admin);
+
+            await context.SaveChangesAsync();
+        }
+
+        using (var context = new Context(options))
+        {
+            var service = new UserService(context, CancellationToken.None);
+
+            var chores = await service.GetOwnedChoresByIdAsync(user.Id);
+            var logs = await service.GetAssociatedLogsByIdAsync(user.Id);
+            var memberships = await service.GetMembershipsByIdAsync(user.Id);
+
+            Assert.Single(chores); 
+            Assert.Equal(user.Id, chores.First().OwnerId);
+            Assert.Single(logs); 
+            Assert.Equal(user.Id, logs.First().UserId); 
+            Assert.Single(memberships); 
+            Assert.Equal(user.Id, memberships.First().UserId); 
+        }
+    }
 }
