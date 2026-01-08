@@ -7,6 +7,7 @@ public class ChoreMember
     public int ChoreId { get; set; }
     public int UserId { get; set; }
     
+    public bool IsAdmin { get; set; }
     // Nullable, so admins aren't forced to do chores
     public int? RotationOrder { get; set; } = 0;
 
@@ -15,6 +16,4 @@ public class ChoreMember
 
     [ForeignKey(nameof(UserId))]
     public User? User { get; set; }
-
-    public ChoreAdmin? AdminRole { get; set; }
 }

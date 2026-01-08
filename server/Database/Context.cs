@@ -7,7 +7,6 @@ using Shared.Database.Models;
 public class Context : DbContext
 {
     public DbSet<Chore> Chores => Set<Chore>();
-    public DbSet<ChoreAdmin> ChoreAdmins => Set<ChoreAdmin>();
     public DbSet<ChoreDescription> ChoreDescriptions => Set<ChoreDescription>();
     public DbSet<ChoreLog> ChoreLogs => Set<ChoreLog>();
     public DbSet<ChoreMember> ChoreMembers => Set<ChoreMember>();
@@ -36,9 +35,6 @@ public class Context : DbContext
         modelBuilder.Entity<ChoreMember>()
             .HasKey(cm => new { cm.ChoreId, cm.UserId });
 
-        modelBuilder.Entity<ChoreAdmin>()
-            .HasKey(ca => new { ca.ChoreId, ca.UserId });
-
         ConfigureOneToManyRelations(modelBuilder);
         ConfigureOneToOneRelations(modelBuilder);
 
@@ -60,12 +56,6 @@ public class Context : DbContext
     }
 
     private void ConfigureOneToOneRelations(ModelBuilder modelBuilder) {
-        modelBuilder.Entity<ChoreAdmin>()
-            .HasOne(ca => ca.Member)
-            .WithOne(cm => cm.AdminRole)
-            .HasForeignKey<ChoreAdmin>(ca => new { ca.ChoreId, ca.UserId })
-            .OnDelete(DeleteBehavior.Cascade);
-
         modelBuilder.Entity<ChoreState>()
             .HasOne(x => x.Chore)
             .WithOne(c => c.State)

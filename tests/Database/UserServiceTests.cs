@@ -270,11 +270,8 @@ public class UserServiceTests
             var log = new ChoreLog { ChoreId = chore.Id, UserId = user.Id };
             context.ChoreLogs.Add(log);
 
-            var member = new ChoreMember { ChoreId = chore.Id, UserId = user.Id };
+            var member = new ChoreMember { ChoreId = chore.Id, UserId = user.Id, IsAdmin = true };
             context.ChoreMembers.Add(member);
-
-            var admin = new ChoreAdmin { ChoreId = chore.Id, UserId = user.Id };
-            context.ChoreAdmins.Add(admin);
 
             await context.SaveChangesAsync();
         }
@@ -293,6 +290,7 @@ public class UserServiceTests
             Assert.Equal(user.Id, logs.First().UserId); 
             Assert.Single(memberships); 
             Assert.Equal(user.Id, memberships.First().UserId); 
+            Assert.True(memberships.First().IsAdmin); 
         }
     }
 }
