@@ -2,7 +2,7 @@ namespace Shared.Networking.Packets;
 
 public record CreateChoreRequest(
     string Title,
-    string? Body, 
+    string? Body,
     string? AvatarUrl,
     DateTime? StartDate,
     TimeSpan? Duration,
@@ -11,15 +11,21 @@ public record CreateChoreRequest(
 
 public record UpdateChoreDetailsRequest(
     int ChoreId,
-    string? Title, 
-    string? Body, 
+    string? Title,
+    string? Body,
     string? AvatarUrl
 );
 
-//todo: what make nullable
 public record UpdateChoreScheduleRequest(
     int ChoreId,
     DateTime? StartDate,
     TimeSpan? Duration,
     TimeSpan? Interval
+);
+
+public record AddMemberRequest(
+    int ChoreId,
+    string Username,
+    bool IsAdmin = false,
+    int? RotationOrder = null
 );

@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -7,8 +8,10 @@ using Shared.Networking.Packets;
 
 namespace Database.Services;
 
+//TODO: return responces where necesarry
 public class ChoreService(Context db)
 {
+    #region Core chore management
     public async Task<Chore?> CreateChoreAsync
         (int ownerId, CreateChoreRequest request, CancellationToken token = default)
     {
@@ -95,7 +98,7 @@ public class ChoreService(Context db)
     {
         int rows = await db.Chores
             .Where(ch => ch.Id == choreId && ch.OwnerId == choreId)
-            .Where(ch => ch.Members.Any())  // don't allow empty chores to be started
+            .Where(ch => ch.NextMemberIdx.HasValue)  // don't allow empty chores to be started
             .ExecuteUpdateAsync(setters =>
                     setters.SetProperty(ch => ch.IsPaused, isPaused),
                 token);
@@ -106,4 +109,71 @@ public class ChoreService(Context db)
     }
 
     // TODO: next member idx
+    #endregion
+
+    #region Member management
+    public async Task<bool> AddMemberAsync
+        (int requestorId, AddMemberRequest request)
+    {
+        var chore = await db.Chores
+            .Include(ch => ch.Members)
+            .Where(ch => ch.Id == request.ChoreId)
+            .FirstOrDefaultAsync();
+
+        if (chore is null) return false;
+
+        bool isOwner = chore.OwnerId == requestorId;
+        bool isAdmin = chore.Members.Any(m => m.UserId == requestorId && m.IsAdmin);
+
+        if (!isOwner && !isAdmin) return false;
+
+        int userIdToAdd;
+        try
+        {
+            userIdToAdd = await db.Users
+                .Where(u => u.Username == request.Username)
+                .Select(u => u.Id)
+                .FirstAsync();
+        }
+        catch (InvalidOperationException)
+        {
+            return false;
+        }
+
+        if (chore.Members.Any(m => m.UserId == userIdToAdd)) return false;
+
+        int? finalRotationOrder = request.RotationOrder;
+        if (request.RotationOrder.HasValue)
+        {
+            var rotationMembers = chore.Members
+                .Where(m => m.RotationOrder.HasValue)
+                .OrderBy(m => m.RotationOrder)
+                .ToList();
+            var rotationOrder =
+                Math.Clamp(request.RotationOrder.Value, 0, rotationMembers.Count);
+            foreach (var existingMember in rotationMembers.Skip(rotationOrder))
+            {
+                existingMember.RotationOrder++;
+            }
+        }
+
+        var member = new ChoreMember
+        {
+            UserId = userIdToAdd,
+            ChoreId = request.ChoreId,
+            IsAdmin = request.IsAdmin,
+            RotationOrder = finalRotationOrder
+        };
+
+        chore.Members.Add(member);
+        if (!chore.NextMemberIdx.HasValue
+                && member.RotationOrder.HasValue)
+            chore.NextMemberIdx = 0;  // first in the queue
+
+        await db.SaveChangesAsync();
+        return true;
+    }
+
+
+    #endregion
 }
