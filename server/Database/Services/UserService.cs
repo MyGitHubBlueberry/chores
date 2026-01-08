@@ -8,6 +8,7 @@ using Shared.Database.Models;
 
 namespace Database.Services;
 
+//TODO: stop swallowing token cancellation exeptions
 public class UserService(Context db, CancellationToken token)
 {
     //TODO: change password to be hashed
