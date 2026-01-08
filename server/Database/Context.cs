@@ -7,7 +7,6 @@ using Shared.Database.Models;
 public class Context : DbContext
 {
     public DbSet<Chore> Chores => Set<Chore>();
-    public DbSet<ChoreDescription> ChoreDescriptions => Set<ChoreDescription>();
     public DbSet<ChoreLog> ChoreLogs => Set<ChoreLog>();
     public DbSet<ChoreMember> ChoreMembers => Set<ChoreMember>();
     public DbSet<ChoreQueue> ChoreQueue => Set<ChoreQueue>();
@@ -66,12 +65,6 @@ public class Context : DbContext
             .HasOne(x => x.Chore)
             .WithOne(c => c.Schedule)
             .HasForeignKey<ChoreSchedule>(x => x.ChoreId)
-            .OnDelete(DeleteBehavior.Cascade);
-
-        modelBuilder.Entity<ChoreDescription>()
-            .HasOne(x => x.Chore)
-            .WithOne(c => c.Description)
-            .HasForeignKey<ChoreDescription>(x => x.ChoreId)
             .OnDelete(DeleteBehavior.Cascade);
     }
 }

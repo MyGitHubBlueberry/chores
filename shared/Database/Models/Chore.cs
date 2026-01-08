@@ -12,10 +12,13 @@ public class Chore
 
     [ForeignKey(nameof(OwnerId))]
     public User? Owner { get; set; }
+    [Required]
+    public string Title { get; set; } = string.Empty;
+    public string? Body { get; set; }
+    public string? AvatarUrl { get; set; }
 
     public ChoreState? State { get; set; }
     public ChoreSchedule? Schedule { get; set; }
-    public ChoreDescription? Description { get; set; }
 
     public ICollection<ChoreMember> Members { get; set; } = new List<ChoreMember>();
     public ICollection<ChoreQueue> QueueItems { get; set; } = new List<ChoreQueue>();
