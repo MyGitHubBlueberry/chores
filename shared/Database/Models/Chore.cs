@@ -18,11 +18,11 @@ public class Chore
     public string? Body { get; set; }
     public string? AvatarUrl { get; set; }
 
-    public bool IsPaused { get; set; } = false;
+    public bool IsPaused { get; set; } = true;
     public int NextMemberIdx { get; set; } = 0;
 
-    public DateTime StartDate { get; set; }
-    public TimeSpan Duration { get; set; }
+    public DateTime StartDate { get; set; } = DateTime.UtcNow;
+    public TimeSpan Duration { get; set; } = TimeSpan.FromDays(1);
     public TimeSpan Interval { get; set; } = TimeSpan.Zero;
 
     public ICollection<ChoreMember> Members { get; set; } = new List<ChoreMember>();
