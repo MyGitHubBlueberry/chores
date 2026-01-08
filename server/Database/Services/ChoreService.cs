@@ -111,9 +111,10 @@ public class ChoreService(Context db)
     // TODO: next member idx
     #endregion
 
+    //TODO: should regenerate Queue
     #region Member management
     public async Task<bool> AddMemberAsync
-        (int requestorId, AddMemberRequest request)
+        (int requesterId, AddMemberRequest request)
     {
         var chore = await db.Chores
             .Include(ch => ch.Members)
@@ -122,8 +123,8 @@ public class ChoreService(Context db)
 
         if (chore is null) return false;
 
-        bool isOwner = chore.OwnerId == requestorId;
-        bool isAdmin = chore.Members.Any(m => m.UserId == requestorId && m.IsAdmin);
+        bool isOwner = chore.OwnerId == requesterId;
+        bool isAdmin = chore.Members.Any(m => m.UserId == requesterId && m.IsAdmin);
 
         if (!isOwner && !isAdmin) return false;
 
@@ -174,6 +175,69 @@ public class ChoreService(Context db)
         return true;
     }
 
+    //TODO: should regenerate Queue
+    public async Task<bool> DeleteMemberAsync(int choreId, int requesterId, int targetUserId)
+    {
+        var chore = await db.Chores
+            .Include(c => c.Members)
+            .FirstOrDefaultAsync(c => c.Id == choreId);
+
+        if (chore is null) return false;
+
+        bool isOwner = chore.OwnerId == requesterId;
+        bool isAdmin = chore.Members.Any(m => m.UserId == requesterId && m.IsAdmin);
+        bool isSelf = requesterId == targetUserId; // Are you removing yourself?
+
+        if (!isOwner && !isAdmin && !isSelf) return false;
+        if (targetUserId == chore.OwnerId && !isOwner) return false;
+
+        var targetMember = chore.Members.FirstOrDefault(m => m.UserId == targetUserId);
+        if (targetMember is null) return false;
+
+        if (!isOwner && isAdmin && targetMember.IsAdmin && !isSelf) return false;
+
+        if (chore.Members.Count == 1)
+        {
+            return await DeleteChoreAsync(choreId, requesterId);
+        }
+
+        if (targetMember.RotationOrder.HasValue)
+        {
+            var rotationList = chore.Members
+                .Where(m => m.RotationOrder.HasValue)
+                .OrderBy(m => m.RotationOrder)
+                .ToList();
+
+
+            foreach (var member in rotationList.Skip(targetMember.RotationOrder.Value))
+            {
+                member.RotationOrder--;
+            }
+
+            int count = rotationList.Count;
+            if (count == 1)
+            {
+                chore.IsPaused = true;
+                chore.NextMemberIdx = 0;
+            } else if (chore.NextMemberIdx == count)
+            {
+                chore.NextMemberIdx = 0;
+            }
+        }
+
+        chore.Members.Remove(targetMember);
+
+        await db.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<bool> SetAdminStatusAsync(int choreId, int requesterId, int targetUserId, bool isAdmin)
+    {
+        throw new NotImplementedException();
+        // 1. Check permissions
+        // 2. Do not update status of yourself
+        // 3. Update Member IsAdmin flag
+    }
 
     #endregion
 }
