@@ -12,13 +12,18 @@ public class Chore
 
     [ForeignKey(nameof(OwnerId))]
     public User? Owner { get; set; }
+
     [Required]
     public string Title { get; set; } = string.Empty;
     public string? Body { get; set; }
     public string? AvatarUrl { get; set; }
 
-    public ChoreState? State { get; set; }
-    public ChoreSchedule? Schedule { get; set; }
+    public bool IsPaused { get; set; } = false;
+    public int NextMemberIdx { get; set; } = 0;
+
+    public DateTime StartDate { get; set; }
+    public TimeSpan Duration { get; set; }
+    public TimeSpan Interval { get; set; } = TimeSpan.Zero;
 
     public ICollection<ChoreMember> Members { get; set; } = new List<ChoreMember>();
     public ICollection<ChoreQueue> QueueItems { get; set; } = new List<ChoreQueue>();
