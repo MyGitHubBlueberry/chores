@@ -219,7 +219,8 @@ public class ChoreService(Context db)
             {
                 chore.IsPaused = true;
                 chore.NextMemberIdx = 0;
-            } else if (chore.NextMemberIdx == count)
+            }
+            else if (chore.NextMemberIdx == count)
             {
                 chore.NextMemberIdx = 0;
             }
@@ -231,12 +232,32 @@ public class ChoreService(Context db)
         return true;
     }
 
-    public async Task<bool> SetAdminStatusAsync(int choreId, int requesterId, int targetUserId, bool isAdmin)
+    public async Task<bool> SetAdminStatusAsync(int choreId, int requesterId, int targetId, bool isAdmin)
     {
-        throw new NotImplementedException();
-        // 1. Check permissions
-        // 2. Do not update status of yourself
-        // 3. Update Member IsAdmin flag
+        if (requesterId == targetId) return false;
+
+        var chore = await db.Chores
+            .Where(ch => ch.Id == choreId)
+            .Include(ch => ch.Members)
+            .FirstOrDefaultAsync();
+
+        if (chore is null) return false;
+        if (chore.OwnerId == targetId) return false;
+
+        var requester = chore.Members.FirstOrDefault(m => m.UserId == requesterId);
+        var target = chore.Members.FirstOrDefault(m => m.UserId == targetId);
+        bool isRequesterOwner = chore.OwnerId == requesterId;
+
+        if (requester is null || target is null) return false;
+
+        if ((target.IsAdmin && isRequesterOwner)
+                || (!target.IsAdmin && (isRequesterOwner || requester.IsAdmin)))
+        {
+            target.IsAdmin = isAdmin;
+            await db.SaveChangesAsync();
+            return true;
+        }
+        return false;
     }
 
     #endregion
