@@ -19,7 +19,7 @@ public class Chore
     public string? AvatarUrl { get; set; }
 
     public bool IsPaused { get; set; } = true;
-    public int? NextMemberIdx { get; set; }
+    public int? CurrentQueueMemberIdx { get; set; }
 
     public DateTime StartDate { get; set; } = DateTime.UtcNow;
     public TimeSpan Duration { get; set; } = TimeSpan.FromDays(1);
