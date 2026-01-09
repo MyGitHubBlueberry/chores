@@ -15,26 +15,18 @@ public class UserService(Context db, CancellationToken token)
     //TODO: maybe switch to records in parameters?
     public async Task<User?> CreateUserAsync(string username, string password)
     {
-        await using var transaction = await db.Database.BeginTransactionAsync(token);
+        if (await db.Users.AnyAsync(u => u.Username == username, token))
+            return null;
 
-        try
+        User user = new User
         {
-            if (await db.Users.AnyAsync(u => u.Username == username, token))
-                return null;
+            Username = username,
+            Password = Encoding.UTF8.GetBytes(password) //temporary
+        };
+        db.Users.Add(user);
+        await db.SaveChangesAsync(token);
 
-            User user = new User
-            {
-                Username = username,
-                Password = Encoding.UTF8.GetBytes(password) //temporary
-            };
-            db.Users.Add(user);
-            await db.SaveChangesAsync(token);
-
-            await transaction.CommitAsync(token);
-            return user;
-        }
-        catch { }
-        return null;
+        return user;
     }
 
     public async Task<User?> GetByIdAsync(int id) =>
@@ -45,34 +37,24 @@ public class UserService(Context db, CancellationToken token)
 
     public async Task<bool> DeleteUserAsync(int id)
     {
-        await using var transaction = await db.Database.BeginTransactionAsync(token);
-
-        try
-        {
-            var result = await db.Users.Where(u => u.Id == id)
-                .ExecuteDeleteAsync(token) != 0;
-            if (result)
-                await transaction.CommitAsync(token);
-            return result;
-        }
-        catch { }
-        return false;
+        return await db.Users.Where(u => u.Id == id)
+            .ExecuteDeleteAsync(token) != 0;
     }
 
     public async Task<ICollection<Chore>> GetOwnedChoresByIdAsync(int id) =>
         await db.Chores
-            .Where(c => c.OwnerId == id)
-            .ToListAsync();
+        .Where(c => c.OwnerId == id)
+        .ToListAsync(token);
 
     public async Task<ICollection<ChoreMember>> GetMembershipsByIdAsync(int id) =>
         await db.ChoreMembers
-            .Where(cm => cm.UserId == id)
-            .ToListAsync();
+        .Where(cm => cm.UserId == id)
+        .ToListAsync(token);
 
     public async Task<ICollection<ChoreLog>> GetAssociatedLogsByIdAsync(int id) =>
         await db.ChoreLogs
-            .Where(cl => cl.UserId == id)
-            .ToListAsync();
+        .Where(cl => cl.UserId == id)
+        .ToListAsync(token);
 
     // public async Task<string> SetUserAwatarAsync(int id)
     // {

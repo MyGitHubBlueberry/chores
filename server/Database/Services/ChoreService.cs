@@ -12,11 +12,11 @@ namespace Database.Services;
 //TODO: return responces where necesarry
 //TODO: background service who will call method to cleanup missed tasks
 //TODO: create and handle skip and swap requests
-public class ChoreService(Context db)
+public class ChoreService(Context db, CancellationToken token)
 {
     #region Core chore management
     public async Task<Chore?> CreateChoreAsync
-        (int ownerId, CreateChoreRequest request, CancellationToken token = default)
+        (int ownerId, CreateChoreRequest request)
     {
         if (!await db.Users.AnyAsync(u => u.Id == ownerId, token))
             return null;
@@ -44,79 +44,53 @@ public class ChoreService(Context db)
         return chore;
     }
 
-    public async Task<bool> DeleteChoreAsync
-        (int userId, int choreId, CancellationToken token = default)
-    {
-        var deletedRows = await db.Chores
+    public async Task<bool> DeleteChoreAsync(int userId, int choreId) =>
+        await db.Chores
             .Where(ch => ch.Id == choreId)
             .Where(ch => ch.OwnerId == userId
                     || ch.Members.Any(m => m.UserId == userId && m.IsAdmin))
-            .ExecuteDeleteAsync(token);
-        if (deletedRows == 0)
-            return false;
-        await db.SaveChangesAsync(token);  //TODO: handle throws
-        return true;
-    }
+            .ExecuteDeleteAsync(token) != 0;
 
 
     public async Task<bool> UpdateDetailsAsync
-        (int userId, UpdateChoreDetailsRequest request, CancellationToken token = default)
-    {
-        int rows = await db.Chores
+        (int userId, UpdateChoreDetailsRequest request) =>
+        await db.Chores
             .Where(c => c.Id == request.ChoreId &&
                     (c.OwnerId == userId || c.Members.Any(m => m.UserId == userId && m.IsAdmin)))
             .ExecuteUpdateAsync(setters => setters
                 .SetProperty(c => c.Title, c => request.Title ?? c.Title)
                 .SetProperty(c => c.Body, c => request.Body ?? c.Body)
                 .SetProperty(c => c.AvatarUrl, c => request.AvatarUrl ?? c.AvatarUrl),
-            token);
-
-        if (rows == 0)
-            return false;
-        await db.SaveChangesAsync(token);  //TODO: handle throws
-        return true;
-    }
+            token) != 0;
 
     //TODO: should regen chore queue if any members participate in chore
     public async Task<bool> UpdateScheduleAsync
-        (int userId, UpdateChoreScheduleRequest request, CancellationToken token = default)
-    {
-        int rows = await db.Chores
+        (int userId, UpdateChoreScheduleRequest request) =>
+        await db.Chores
             .Where(c => c.Id == request.ChoreId &&
                     (c.OwnerId == userId || c.Members.Any(m => m.UserId == userId && m.IsAdmin)))
             .ExecuteUpdateAsync(setters => setters
                 .SetProperty(c => c.StartDate, c => request.StartDate ?? c.StartDate)
                 .SetProperty(c => c.Interval, c => request.Interval ?? c.Interval)
                 .SetProperty(c => c.Duration, c => request.Duration ?? c.Duration),
-            token);
-
-        if (rows == 0)
-            return false;
-        await db.SaveChangesAsync(token);  //TODO: handle throws
-        return true;
-    }
+            token) != 0;
 
     public async Task<bool> SetIsPausedAsync
-        (int userId, int choreId, bool isPaused, CancellationToken token = default)
-    {
-        int rows = await db.Chores
+        (int userId, int choreId, bool isPaused) =>
+        await db.Chores
             .Where(ch => ch.Id == choreId && ch.OwnerId == choreId)
             .Where(ch => ch.CurrentQueueMemberIdx.HasValue)  // don't allow empty chores to be started
             .ExecuteUpdateAsync(setters =>
                     setters.SetProperty(ch => ch.IsPaused, isPaused),
-                token);
-        if (rows == 0)
-            return false;
-        await db.SaveChangesAsync(token);  //TODO: handle throws
-        return true;
-    }
+                token) != 0;
 
     public async Task<bool> CompleteChore(int userId, int choreId)
     {
+        using var transaction = await db.Database.BeginTransactionAsync(token);
         var chore = await db.Chores
             .Include(ch => ch.Members)
             .Include(ch => ch.QueueItems)
-            .FirstOrDefaultAsync();
+            .FirstOrDefaultAsync(token);
 
         if (chore is null) return false;
         if (chore.IsPaused) return false;
@@ -137,8 +111,7 @@ public class ChoreService(Context db)
             Duration = chore.Duration,
         });
         chore.QueueItems.Remove(queueItem);
-
-        await db.SaveChangesAsync();
+        await db.SaveChangesAsync(token);
 
         var date = chore.QueueItems
             .OrderBy(i => i.ScheduledDate)
@@ -152,7 +125,8 @@ public class ChoreService(Context db)
             ScheduledDate = date + chore.Duration + chore.Interval,
             AssignedMemberId = GetNextChoreItemIdx(chore),
         });
-        await db.SaveChangesAsync();
+        await db.SaveChangesAsync(token);
+        await transaction.CommitAsync(token);
 
         return true;
     }
@@ -192,16 +166,17 @@ public class ChoreService(Context db)
         return (chore.CurrentQueueMemberIdx + 1) % totalWorkers;
     }
 
-    public async Task ProcessMissedChoresAsync(CancellationToken token)
+    public async Task ProcessMissedChoresAsync()
     {
         var missedItems = await db.ChoreQueue
             .Include(q => q.Chore)
-            .Where(q => q.ScheduledDate + q.Chore.Duration < DateTime.UtcNow)
-            .ToListAsync();
+            .Where(q => q.ScheduledDate + q.Chore.Duration < DateTime.UtcNow) //todo: fix warning
+            .ToListAsync(token);
+        //todo: maybe do this in parallel?
         foreach (var item in missedItems)
         {
             Debug.Assert(item.Chore is not null);
-            db.ChoreLogs.Add(new ChoreLog
+            item.Chore.Logs.Add(new ChoreLog
             {
                 Duration = item.Chore.Duration,
                 ChoreId = item.ChoreId,
@@ -213,13 +188,13 @@ public class ChoreService(Context db)
             //TODO: 
             //should i let chore be missed?
             item.Chore.CurrentQueueMemberIdx = GetNextMemberIdx(item.Chore);
-            db.ChoreQueue.Remove(item);
-            var date = db.ChoreQueue
-                .Where(q => q.ChoreId == item.ChoreId)
+            item.Chore.QueueItems.Remove(item);
+            // TODO: if testing doesn't pass maybe i need save here
+            var date = item.Chore.QueueItems
                 .OrderBy(i => i.ScheduledDate)
                 .Select(i => i.ScheduledDate)
                 .LastOrDefault();
-            db.ChoreQueue.Add(new ChoreQueue
+            item.Chore.QueueItems.Add(new ChoreQueue
             {
                 ChoreId = item.ChoreId,
                 ScheduledDate = date + item.Chore.Duration + item.Chore.Interval,
@@ -245,7 +220,7 @@ public class ChoreService(Context db)
         var chore = await db.Chores
             .Include(ch => ch.Members)
             .Where(ch => ch.Id == request.ChoreId)
-            .FirstOrDefaultAsync();
+            .FirstOrDefaultAsync(token);
 
         if (chore is null) return false;
 
@@ -260,7 +235,7 @@ public class ChoreService(Context db)
             userIdToAdd = await db.Users
                 .Where(u => u.Username == request.Username)
                 .Select(u => u.Id)
-                .FirstAsync();
+                .FirstAsync(token);
         }
         catch (InvalidOperationException)
         {
@@ -297,7 +272,7 @@ public class ChoreService(Context db)
                 && member.RotationOrder.HasValue)
             chore.CurrentQueueMemberIdx = 0;  // first in the queue
 
-        await db.SaveChangesAsync();
+        await db.SaveChangesAsync(token);
         return true;
     }
 
@@ -307,7 +282,7 @@ public class ChoreService(Context db)
     {
         var chore = await db.Chores
             .Include(c => c.Members)
-            .FirstOrDefaultAsync(c => c.Id == choreId);
+            .FirstOrDefaultAsync(c => c.Id == choreId, token);
 
         if (chore is null) return false;
 
@@ -355,7 +330,7 @@ public class ChoreService(Context db)
 
         chore.Members.Remove(targetMember);
 
-        await db.SaveChangesAsync();
+        await db.SaveChangesAsync(token);
         return true;
     }
 
@@ -367,7 +342,7 @@ public class ChoreService(Context db)
         var chore = await db.Chores
             .Where(ch => ch.Id == choreId)
             .Include(ch => ch.Members)
-            .FirstOrDefaultAsync();
+            .FirstOrDefaultAsync(token);
 
         if (chore is null) return false;
         if (chore.OwnerId == targetId) return false;
@@ -382,7 +357,7 @@ public class ChoreService(Context db)
                 || (!target.IsAdmin && (isRequesterOwner || requester.IsAdmin)))
         {
             target.IsAdmin = isAdmin;
-            await db.SaveChangesAsync();
+            await db.SaveChangesAsync(token);
             return true;
         }
         return false;
