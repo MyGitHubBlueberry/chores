@@ -2,11 +2,11 @@ namespace Shared.Networking.Packets;
 
 public record CreateChoreRequest(
     string Title,
-    string? Body,
-    string? AvatarUrl,
-    DateTime? StartDate,
-    TimeSpan? Duration,
-    TimeSpan? Interval
+    string? Body = null,
+    string? AvatarUrl = null,
+    DateTime? StartDate = null,
+    TimeSpan? Duration = null,
+    TimeSpan? Interval = null
 );
 
 public record UpdateChoreDetailsRequest(

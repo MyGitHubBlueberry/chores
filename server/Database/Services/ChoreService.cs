@@ -12,6 +12,8 @@ namespace Database.Services;
 //TODO: return responces where necesarry
 //TODO: background service who will call method to cleanup missed tasks
 //TODO: create and handle skip and swap requests
+//TODO: add verification for duration (should not be 0)
+//TODO: add created and deleted logs? maybe save ownerId and chore name in logs
 public class ChoreService(Context db, CancellationToken token)
 {
     #region Core chore management
