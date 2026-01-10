@@ -217,21 +217,56 @@ public class ChoreServiceTests
         Assert.Equal(startingValue, chore.AvatarUrl);
     }
 
-    // [Fact]
-    // public async Task UpdateSchedule_Is_Not_For_Regular_Users()
-    // {
-    //     var (connection, options) = await DbTestHelper.SetupTestDbAsync();
-    //     var startingValue = "Test";
-    //     Chore chore = await new DbTestHelper
-    //             .ChoreBuilder(new Context(options))
-    //             .WithFill(startingValue)
-    //             .WithOwner().GetAwaiter().GetResult()
-    //             .WithUser().GetAwaiter().GetResult()
-    //             .Build();
-    //
-    //     using (var context = new Context(options))
-    //     {
-    //         new ChoreService(context, CancellationToken.None);
-    //     }
-    // }
+    [Fact]
+    public async Task UpdateSchedule_Is_Not_For_Regular_Users()
+    {
+        var (connection, options) = await DbTestHelper.SetupTestDbAsync();
+        Chore chore = await new DbTestChoreBuilder(new Context(options))
+                .WithOwner().GetAwaiter().GetResult()
+                .WithUser().GetAwaiter().GetResult()
+                .Build();
+        var request = new UpdateChoreScheduleRequest(chore.Id,
+                StartDate: DateTime.Parse("2005-12-12"),
+                Interval: TimeSpan.FromDays(3),
+                Duration: TimeSpan.FromDays(3));
+        int userId = chore.Members
+            .Where(m => !m.IsAdmin)
+            .Select(m => m.UserId)
+            .First();
+        using var context = new Context(options);
+
+        Assert.NotEqual(request.StartDate, chore.StartDate);
+        Assert.NotEqual(request.Interval, chore.Interval);
+        Assert.NotEqual(request.Duration, chore.Duration);
+        Assert.False(await new ChoreService(context, CancellationToken.None)
+                .UpdateScheduleAsync(userId, request));
+        Assert.NotEqual(request.StartDate, chore.StartDate);
+        Assert.NotEqual(request.Interval, chore.Interval);
+        Assert.NotEqual(request.Duration, chore.Duration);
+    }
+
+    [Fact]
+    public async Task UpdateSchedule_Updates_Schedule()
+    {
+        var (connection, options) = await DbTestHelper.SetupTestDbAsync();
+        Chore chore = await new DbTestChoreBuilder(new Context(options))
+                .WithOwner().GetAwaiter().GetResult()
+                .WithUser().GetAwaiter().GetResult()
+                .Build();
+        var request = new UpdateChoreScheduleRequest(chore.Id,
+                StartDate: DateTime.Parse("2005-12-12"),
+                Interval: TimeSpan.FromDays(3),
+                Duration: TimeSpan.FromDays(3));
+        using var context = new Context(options);
+
+        Assert.NotEqual(request.StartDate, chore.StartDate);
+        Assert.NotEqual(request.Interval, chore.Interval);
+        Assert.NotEqual(request.Duration, chore.Duration);
+        Assert.True(await new ChoreService(context, CancellationToken.None)
+                .UpdateScheduleAsync(chore.OwnerId, request));
+        chore = await context.Chores.FirstAsync();
+        Assert.Equal(request.StartDate, chore.StartDate);
+        Assert.Equal(request.Interval, chore.Interval);
+        Assert.Equal(request.Duration, chore.Duration);
+    }
 }

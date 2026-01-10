@@ -71,9 +71,9 @@ public class ChoreService(Context db, CancellationToken token)
             .Where(c => c.Id == request.ChoreId &&
                     (c.OwnerId == userId || c.Members.Any(m => m.UserId == userId && m.IsAdmin)))
             .ExecuteUpdateAsync(setters => setters
-                .SetProperty(c => c.StartDate, c => request.StartDate ?? c.StartDate)
-                .SetProperty(c => c.Interval, c => request.Interval ?? c.Interval)
-                .SetProperty(c => c.Duration, c => request.Duration ?? c.Duration),
+                .SetProperty(c => c.StartDate, c => request.StartDate == null ? c.StartDate : request.StartDate)
+                .SetProperty(c => c.Interval, c => request.Interval == null ? c.Interval : request.Interval)
+                .SetProperty(c => c.Duration, c => request.Duration == null ? c.Duration : request.Duration),
             token) != 0;
 
     public async Task<bool> SetIsPausedAsync
