@@ -77,8 +77,7 @@ public class ChoreServiceTests
 
         using (var context = new Context(options))
         {
-            chore = await new DbTestHelper
-                .ChoreBuilder(context)
+            chore = await new DbTestChoreBuilder(context)
                 .WithOwner().GetAwaiter().GetResult()
                 .Build();
             notMember = await DbTestHelper.CreateAndAddUser("user", context);
@@ -90,6 +89,8 @@ public class ChoreServiceTests
 
             Assert.False(await new ChoreService(context, CancellationToken.None)
                     .DeleteChoreAsync(notMember.Id, chore.Id));
+
+            Assert.NotEmpty(context.Chores);
         }
     }
 
@@ -97,190 +98,97 @@ public class ChoreServiceTests
     public async Task DeleteChore_Owner_Can_Delete()
     {
         var (connection, options) = await DbTestHelper.SetupTestDbAsync();
-        Chore chore;
-        var owner = new User
-        {
-            Username = "Owns a chore",
-            Password = [1],
-        };
+        Chore chore = await new DbTestChoreBuilder(new Context(options))
+                .WithOwner().GetAwaiter().GetResult()
+                .Build();
 
-        using (var context = new Context(options))
-        {
-            await context.Users.AddAsync(owner);
-            await context.SaveChangesAsync();
-            chore = new Chore
-            {
-                OwnerId = owner.Id,
-                Title = "Test",
-            };
-            owner.OwnedChores.Add(chore);
-            await context.SaveChangesAsync();
-        }
+        using var context = new Context(options);
+        Assert.NotEmpty(context.Chores);
 
-        using (var context = new Context(options))
-        {
-            Assert.NotEmpty(context.Chores);
+        Assert.True(await new ChoreService(context, CancellationToken.None)
+                .DeleteChoreAsync(chore.OwnerId, chore.Id));
 
-            Assert.True(await new ChoreService(context, CancellationToken.None)
-                    .DeleteChoreAsync(owner.Id, chore.Id));
-        }
+        Assert.Empty(context.Chores);
     }
 
     [Fact]
     public async Task DeleteChore_Admin_Can_Delete()
     {
         var (connection, options) = await DbTestHelper.SetupTestDbAsync();
-        Chore chore;
-        var owner = new User
-        {
-            Username = "Owns a chore",
-            Password = [1],
-        };
-        var admin = new User
-        {
-            Username = "Just an admin",
-            Password = [1],
-        };
+        Chore chore = await new DbTestChoreBuilder(new Context(options))
+                .WithOwner().GetAwaiter().GetResult()
+                .WithAdmin().GetAwaiter().GetResult()
+                .Build();
 
-        using (var context = new Context(options))
-        {
-            await context.Users.AddRangeAsync(owner, admin);
-            await context.SaveChangesAsync();
-            chore = new Chore
-            {
-                OwnerId = owner.Id,
-                Title = "Test",
-            };
-            owner.OwnedChores.Add(chore);
-            await context.SaveChangesAsync();
-            chore.Members.Add(new ChoreMember
-                    {
-                    UserId = admin.Id,
-                    IsAdmin = true,
-                    });
-            await context.SaveChangesAsync();
-        }
+        int adminId = chore.Members
+            .Where(m => m.IsAdmin && m.UserId != chore.OwnerId)
+            .Select(m => m.UserId)
+            .First();
 
-        using (var context = new Context(options))
-        {
-            Assert.NotEmpty(context.Chores);
+        using var context = new Context(options);
 
-            var service = new ChoreService(context, CancellationToken.None);
-            Assert.True(await service.DeleteChoreAsync(admin.Id, chore.Id));
-        }
+        Assert.NotEmpty(context.Chores);
+        var service = new ChoreService(context, CancellationToken.None);
+        Assert.True(await service.DeleteChoreAsync(adminId, chore.Id));
+        Assert.Empty(context.Chores);
     }
 
     [Fact]
     public async Task DeleteChore_Regular_Members_Cant_Delete()
     {
         var (connection, options) = await DbTestHelper.SetupTestDbAsync();
-        Chore chore;
-        var owner = new User
-        {
-            Username = "Owns a chore",
-            Password = [1],
-        };
-        var user = new User
-        {
-            Username = "Just an admin",
-            Password = [1],
-        };
+        Chore chore = await new DbTestChoreBuilder(new Context(options))
+                .WithOwner().GetAwaiter().GetResult()
+                .WithUser().GetAwaiter().GetResult()
+                .Build();
+        int userId = chore.Members
+            .Where(m => !m.IsAdmin)
+            .Select(m => m.UserId)
+            .First();
 
-        using (var context = new Context(options))
-        {
-            await context.Users.AddRangeAsync(user, owner);
-            await context.SaveChangesAsync();
-            chore = new Chore
-            {
-                Title = "Test",
-            };
-            chore.Members.Add(new ChoreMember
-                    {
-                    UserId = user.Id,
-                    IsAdmin = false,
-                    });
-            owner.OwnedChores.Add(chore);
-            await context.SaveChangesAsync();
-        }
-
-        using (var context = new Context(options))
-        {
-            Assert.NotEmpty(context.Chores);
-            Assert.False(await new ChoreService(context, CancellationToken.None)
-                    .DeleteChoreAsync(user.Id, chore.Id));
-            Assert.False((await context.ChoreMembers.FirstAsync()).IsAdmin);
-        }
+        using var context = new Context(options);
+        Assert.NotEmpty(context.Chores);
+        Assert.False(await new ChoreService(context, CancellationToken.None)
+                .DeleteChoreAsync(userId, chore.Id));
+        Assert.NotEmpty(context.Chores);
     }
 
     [Fact]
     public async Task UpdateDetails_Updates_Details()
     {
         var (connection, options) = await DbTestHelper.SetupTestDbAsync();
-        Chore chore = new Chore
-        {
-            Title = "Test",
-            Body = "Test",
-            AvatarUrl = "Test"
-        };
-        var owner = new User
-        {
-            Username = "Owns a chore",
-            Password = [1],
-        };
+        Chore chore = await new DbTestChoreBuilder(new Context(options))
+                .WithOwner().GetAwaiter().GetResult()
+                .Build();
+        var request = new UpdateChoreDetailsRequest(chore.Id,
+                "new", "new", "new");
+        using var context = new Context(options);
 
-        using (var context = new Context(options))
-        {
-            await context.Users.AddAsync(owner);
-            owner.OwnedChores.Add(chore);
-            await context.SaveChangesAsync();
-        }
-
-        using (var context = new Context(options))
-        {
-            var request = new UpdateChoreDetailsRequest(chore.Id,
-                    "new", "new", "new");
-            Assert.True(await new ChoreService(context, CancellationToken.None)
-                    .UpdateDetailsAsync(owner.Id, request));
-            chore = await context.Chores.FirstAsync();
-            Assert.Equal(chore.Title, request.Title);
-            Assert.Equal(chore.Body, request.Body);
-            Assert.Equal(chore.AvatarUrl, request.AvatarUrl);
-        }
+        Assert.True(await new ChoreService(context, CancellationToken.None)
+                .UpdateDetailsAsync(chore.OwnerId, request));
+        chore = await context.Chores.FirstAsync();
+        Assert.Equal(chore.Title, request.Title);
+        Assert.Equal(chore.Body, request.Body);
+        Assert.Equal(chore.AvatarUrl, request.AvatarUrl);
     }
 
     [Fact]
     public async Task UpdateDetails_Not_Resets_Properties_If_They_Are_Null()
     {
         var (connection, options) = await DbTestHelper.SetupTestDbAsync();
-        Chore chore = new Chore
-        {
-            Title = "Test",
-            Body = "Test",
-            AvatarUrl = "Test"
-        };
-        var owner = new User
-        {
-            Username = "Owns a chore",
-            Password = [1],
-        };
+        Chore chore = await new DbTestChoreBuilder(new Context(options))
+                .WithFill("Something")
+                .WithOwner().GetAwaiter().GetResult()
+                .Build();
 
-        using (var context = new Context(options))
-        {
-            await context.Users.AddAsync(owner);
-            owner.OwnedChores.Add(chore);
-            await context.SaveChangesAsync();
-        }
-
-        using (var context = new Context(options))
-        {
-            var request = new UpdateChoreDetailsRequest(chore.Id);
-            Assert.True(await new ChoreService(context, CancellationToken.None)
-                    .UpdateDetailsAsync(owner.Id, request));
-            chore = await context.Chores.FirstAsync();
-            Assert.NotNull(chore.Title);
-            Assert.NotNull(chore.Body);
-            Assert.NotNull(chore.AvatarUrl);
-        }
+        using var context = new Context(options);
+        var request = new UpdateChoreDetailsRequest(chore.Id);
+        Assert.True(await new ChoreService(context, CancellationToken.None)
+                .UpdateDetailsAsync(chore.OwnerId, request));
+        chore = await context.Chores.FirstAsync();
+        Assert.NotNull(chore.Title);
+        Assert.NotNull(chore.Body);
+        Assert.NotNull(chore.AvatarUrl);
     }
 
     [Fact]
@@ -288,87 +196,42 @@ public class ChoreServiceTests
     {
         var (connection, options) = await DbTestHelper.SetupTestDbAsync();
         var startingValue = "Test";
-        Chore chore = new Chore
-        {
-            Title = startingValue,
-            Body = startingValue,
-            AvatarUrl = startingValue
-        };
-        var owner = new User
-        {
-            Username = "Owns a chore",
-            Password = [1],
-        };
-        var user = new User
-        {
-            Username = "Just a user",
-            Password = [1],
-        };
+        Chore chore = await new DbTestChoreBuilder(new Context(options))
+                .WithFill(startingValue)
+                .WithOwner().GetAwaiter().GetResult()
+                .WithUser().GetAwaiter().GetResult()
+                .Build();
+        int userId = chore.Members
+            .Where(m => !m.IsAdmin)
+            .Select(m => m.UserId)
+            .First();
 
-        using (var context = new Context(options))
-        {
-            await context.Users.AddRangeAsync(owner, user);
-            owner.OwnedChores.Add(chore);
-            await context.SaveChangesAsync();
-            chore.Members.Add(new ChoreMember
-                    {
-                    UserId = user.Id,
-                    IsAdmin = false
-                    });
-            await context.SaveChangesAsync();
-        }
-
-        using (var context = new Context(options))
-        {
-            var request = new UpdateChoreDetailsRequest(chore.Id,
-                    "new", "new", "new");
-            Assert.False(await new ChoreService(context, CancellationToken.None)
-                    .UpdateDetailsAsync(user.Id, request));
-            chore = await context.Chores.FirstAsync();
-            Assert.Equal(startingValue, chore.Title);
-            Assert.Equal(startingValue, chore.Body);
-            Assert.Equal(startingValue, chore.AvatarUrl);
-        }
+        using var context = new Context(options);
+        var request = new UpdateChoreDetailsRequest(chore.Id,
+                "new", "new", "new");
+        Assert.False(await new ChoreService(context, CancellationToken.None)
+                .UpdateDetailsAsync(userId, request));
+        chore = await context.Chores.FirstAsync();
+        Assert.Equal(startingValue, chore.Title);
+        Assert.Equal(startingValue, chore.Body);
+        Assert.Equal(startingValue, chore.AvatarUrl);
     }
 
-    [Fact]
-    public async Task UpdateSchedule_Is_Not_For_Regular_Users()
-    {
-        var (connection, options) = await DbTestHelper.SetupTestDbAsync();
-        var startingValue = "Test";
-        Chore chore = new Chore
-        {
-            Title = startingValue,
-            Body = startingValue,
-            AvatarUrl = startingValue
-        };
-        var owner = new User
-        {
-            Username = "Owns a chore",
-            Password = [1],
-        };
-        var user = new User
-        {
-            Username = "Just a user",
-            Password = [1],
-        };
-
-        using (var context = new Context(options))
-        {
-            await context.Users.AddRangeAsync(owner, user);
-            owner.OwnedChores.Add(chore);
-            await context.SaveChangesAsync();
-            chore.Members.Add(new ChoreMember
-                    {
-                    UserId = user.Id,
-                    IsAdmin = false
-                    });
-            await context.SaveChangesAsync();
-        }
-
-        using (var context = new Context(options))
-        {
-            new ChoreService(context, CancellationToken.None);
-        }
-    }
+    // [Fact]
+    // public async Task UpdateSchedule_Is_Not_For_Regular_Users()
+    // {
+    //     var (connection, options) = await DbTestHelper.SetupTestDbAsync();
+    //     var startingValue = "Test";
+    //     Chore chore = await new DbTestHelper
+    //             .ChoreBuilder(new Context(options))
+    //             .WithFill(startingValue)
+    //             .WithOwner().GetAwaiter().GetResult()
+    //             .WithUser().GetAwaiter().GetResult()
+    //             .Build();
+    //
+    //     using (var context = new Context(options))
+    //     {
+    //         new ChoreService(context, CancellationToken.None);
+    //     }
+    // }
 }
