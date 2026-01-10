@@ -11,16 +11,16 @@ public record CreateChoreRequest(
 
 public record UpdateChoreDetailsRequest(
     int ChoreId,
-    string? Title,
-    string? Body,
-    string? AvatarUrl
+    string? Title = null,
+    string? Body = null,
+    string? AvatarUrl = null
 );
 
 public record UpdateChoreScheduleRequest(
     int ChoreId,
-    DateTime? StartDate,
-    TimeSpan? Duration,
-    TimeSpan? Interval
+    DateTime? StartDate = null,
+    TimeSpan? Duration = null,
+    TimeSpan? Interval = null
 );
 
 public record AddMemberRequest(

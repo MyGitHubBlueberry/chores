@@ -53,7 +53,6 @@ public class ChoreService(Context db, CancellationToken token)
                     || ch.Members.Any(m => m.UserId == userId && m.IsAdmin))
             .ExecuteDeleteAsync(token) != 0;
 
-
     public async Task<bool> UpdateDetailsAsync
         (int userId, UpdateChoreDetailsRequest request) =>
         await db.Chores
