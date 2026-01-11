@@ -9,6 +9,8 @@ using Shared.Networking.Packets;
 
 namespace Database.Services;
 
+//todo: don't allow for setting starting date in past
+//todo: when chore is paused, keep first queueItems starting date at utcnow (maybe add background worker to add day to every queue entry when paused)
 //TODO: return responces where necesarry
 //TODO: background service who will call method to cleanup missed tasks
 //TODO: create and handle skip and swap requests
@@ -364,5 +366,101 @@ public class ChoreService(Context db, CancellationToken token)
         }
         return false;
     }
+    #endregion
+
+    #region QueueManagement
+    //add new queue items
+    public async Task<bool> ExtendQueueAsync(int choreId, int days = default) 
+    {
+        var chore = await db.Chores
+            .Include(ch => ch.Members)
+            .Where(ch => ch.Id == choreId)
+            .FirstOrDefaultAsync(token);
+        if (chore is null || !chore.CurrentQueueMemberIdx.HasValue) 
+            return false;
+        //get true next queue member idx
+        int newQueueMemberRotationOrderIdx = chore.CurrentQueueMemberIdx ?? 0 
+            + chore.QueueItems.Count;
+        int[] membersIdsFromRotaionOrder = chore.Members
+            .Where(m => m.RotationOrder.HasValue)
+            .OrderBy(m => m.RotationOrder)
+            .Select(m => m.UserId)
+            .ToArray();
+        int memberCount = membersIdsFromRotaionOrder.Length;
+        DateTime date = chore.QueueItems.LastOrDefault()?.ScheduledDate 
+            ?? chore.StartDate;
+        //TODO: prbbly should change this to add up to end of the mounth (account for current queued choreitems and reference their date as starting point instead of utcnow)
+        if (days <= 0) 
+            days = DateTime.DaysInMonth(DateTime.UtcNow.Year, DateTime.UtcNow.Month);
+        //generate next queue items
+        var queueItems = new ChoreQueue[days];
+        for (int i = 0; i < days; i++) {
+            queueItems[i] = new ChoreQueue {
+                AssignedMemberId = membersIdsFromRotaionOrder[i % memberCount],
+                ScheduledDate = date
+            };
+            date += chore.Interval + chore.Duration;
+            chore.QueueItems.Add(queueItems[i]);
+        }
+        await db.SaveChangesAsync(token);
+        return true;
+    }
+
+    // swap (permanent for member swapping and swap at specific place once when requested)
+    public async Task<bool> SwapQueueItemsAsync
+        (int choreId, int userId, int queueItemAId, int queueItemBId)
+    {
+        var chore = await db.Chores
+            .Include(ch => ch.QueueItems)
+            .Where(ch => ch.Members.Any(m => m.UserId == userId && m.IsAdmin))
+            .FirstOrDefaultAsync(token);
+        var a = chore?.QueueItems.FirstOrDefault(q => q.Id == queueItemAId);
+        var b = chore?.QueueItems.FirstOrDefault(q => q.Id == queueItemBId);
+        if (a is null || b is null) return false;
+        DateTime temp = a.ScheduledDate;
+        a.ScheduledDate = b.ScheduledDate;
+        b.ScheduledDate = temp;
+        await db.SaveChangesAsync(token);
+        return true;
+    }
+
+    public async Task<bool> SwapMembersInQueueAsync(int requesterId, int choreId, int userAId, int userBId)
+    {
+        var chore = await db.Chores
+            .Include(ch => ch.QueueItems)
+            .Include(ch => ch.Members)
+            .Where(ch => ch.Members.Any(m => m.UserId == requesterId && m.IsAdmin))
+            .FirstOrDefaultAsync(token);
+        if (chore is null) return false;
+        var a = chore.Members.FirstOrDefault(m => m.UserId == userAId);
+        var b = chore.Members.FirstOrDefault(m => m.UserId == userBId);
+        if (a is null || b is null
+                || !a.RotationOrder.HasValue
+                || !b.RotationOrder.HasValue) return false;
+
+        if (chore.QueueItems.Count != 0) 
+        {
+            var exUserAQueueItemIdx = chore.QueueItems
+                .Where(q => q.AssignedMemberId == a.UserId)
+                .Select(q => q.Id)
+                .ToHashSet();
+            chore.QueueItems
+                .Where(q => q.AssignedMemberId == b.UserId)
+                .ToList()
+                .ForEach(q => q.AssignedMemberId = a.UserId);
+            chore.QueueItems
+                .Where(q => exUserAQueueItemIdx.Contains(q.Id))
+                .ToList()
+                .ForEach(q => q.AssignedMemberId = b.UserId);
+            await db.SaveChangesAsync(token);
+        }
+        a.RotationOrder ^= b.RotationOrder;
+        b.RotationOrder ^= a.RotationOrder;
+        a.RotationOrder ^= b.RotationOrder;
+        return true;
+    }
+    // insert (insert new queue item or insert member in queue) (don't forget to shift dates)
+    // delete (when removing member and when removing one queue item) ()
+
     #endregion
 }
