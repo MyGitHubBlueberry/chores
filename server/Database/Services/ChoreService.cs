@@ -49,8 +49,7 @@ public class ChoreService(Context db, CancellationToken token)
     public async Task<bool> DeleteChoreAsync(int userId, int choreId) =>
         await db.Chores
             .Where(ch => ch.Id == choreId)
-            .Where(ch => ch.OwnerId == userId
-                    || ch.Members.Any(m => m.UserId == userId && m.IsAdmin))
+            .Where(ch => ch.OwnerId == userId)
             .ExecuteDeleteAsync(token) != 0;
 
     public async Task<bool> UpdateDetailsAsync
@@ -79,7 +78,9 @@ public class ChoreService(Context db, CancellationToken token)
     public async Task<bool> SetIsPausedAsync
         (int userId, int choreId, bool isPaused) =>
         await db.Chores
-            .Where(ch => ch.Id == choreId && ch.OwnerId == choreId)
+            .Where(ch => ch.Id == choreId)
+            .Where(ch => ch.OwnerId == choreId 
+                    || ch.Members.Any(m => m.UserId == userId && m.IsAdmin))
             .Where(ch => ch.CurrentQueueMemberIdx.HasValue)  // don't allow empty chores to be started
             .ExecuteUpdateAsync(setters =>
                     setters.SetProperty(ch => ch.IsPaused, isPaused),

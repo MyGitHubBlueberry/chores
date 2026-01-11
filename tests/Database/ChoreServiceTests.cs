@@ -112,7 +112,7 @@ public class ChoreServiceTests
     }
 
     [Fact]
-    public async Task DeleteChore_Admin_Can_Delete()
+    public async Task DeleteChore_Admin_Cant_Delete()
     {
         var (connection, options) = await DbTestHelper.SetupTestDbAsync();
         Chore chore = await new DbTestChoreBuilder(new Context(options))
@@ -129,8 +129,8 @@ public class ChoreServiceTests
 
         Assert.NotEmpty(context.Chores);
         var service = new ChoreService(context, CancellationToken.None);
-        Assert.True(await service.DeleteChoreAsync(adminId, chore.Id));
-        Assert.Empty(context.Chores);
+        Assert.False(await service.DeleteChoreAsync(adminId, chore.Id));
+        Assert.NotEmpty(context.Chores);
     }
 
     [Fact]
