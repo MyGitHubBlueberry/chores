@@ -139,7 +139,7 @@ public class ChoreServiceTests
         var (connection, options) = await DbTestHelper.SetupTestDbAsync();
         Chore chore = await new DbTestChoreBuilder(new Context(options))
                 .WithOwner().GetAwaiter().GetResult()
-                .WithUser().GetAwaiter().GetResult()
+                .WithMember().GetAwaiter().GetResult()
                 .Build();
         int userId = chore.Members
             .Where(m => !m.IsAdmin)
@@ -199,7 +199,7 @@ public class ChoreServiceTests
         Chore chore = await new DbTestChoreBuilder(new Context(options))
                 .WithFill(startingValue)
                 .WithOwner().GetAwaiter().GetResult()
-                .WithUser().GetAwaiter().GetResult()
+                .WithMember().GetAwaiter().GetResult()
                 .Build();
         int userId = chore.Members
             .Where(m => !m.IsAdmin)
@@ -223,7 +223,7 @@ public class ChoreServiceTests
         var (connection, options) = await DbTestHelper.SetupTestDbAsync();
         Chore chore = await new DbTestChoreBuilder(new Context(options))
                 .WithOwner().GetAwaiter().GetResult()
-                .WithUser().GetAwaiter().GetResult()
+                .WithMember().GetAwaiter().GetResult()
                 .Build();
         var request = new UpdateChoreScheduleRequest(chore.Id,
                 StartDate: DateTime.Parse("2005-12-12"),
@@ -251,7 +251,7 @@ public class ChoreServiceTests
         var (connection, options) = await DbTestHelper.SetupTestDbAsync();
         Chore chore = await new DbTestChoreBuilder(new Context(options))
                 .WithOwner().GetAwaiter().GetResult()
-                .WithUser().GetAwaiter().GetResult()
+                .WithMember().GetAwaiter().GetResult()
                 .Build();
         var request = new UpdateChoreScheduleRequest(chore.Id,
                 StartDate: DateTime.Parse("2005-12-12"),
@@ -268,5 +268,189 @@ public class ChoreServiceTests
         Assert.Equal(request.StartDate, chore.StartDate);
         Assert.Equal(request.Interval, chore.Interval);
         Assert.Equal(request.Duration, chore.Duration);
+    }
+
+    [Fact]
+    public async Task AddMemberAsync_Adds_Member()
+    {
+        var (connection, options) = await DbTestHelper.SetupTestDbAsync();
+        Chore chore;
+        User user;
+
+        using (var context = new Context(options))
+        {
+            chore = await new DbTestChoreBuilder(context)
+                    .WithOwner().GetAwaiter().GetResult()
+                    .Build();
+            user = await DbTestHelper.CreateAndAddUser("user", context);
+        }
+
+        var request = new AddMemberRequest(chore.Id, user.Username);
+
+        using (var context = new Context(options))
+        {
+            var service = new ChoreService(context, CancellationToken.None);
+            Assert.Equal(1, chore.Members.Count);
+            Assert.True(await service.AddMemberAsync(chore.OwnerId, request));
+            chore = await context.Chores.FirstAsync();
+            Assert.Equal(2, chore.Members.Count);
+        }
+    }
+
+    [Fact]
+    public async Task DeleteMember_Deletes_Member()
+    {
+        var (connection, options) = await DbTestHelper.SetupTestDbAsync();
+        Chore chore = await new DbTestChoreBuilder(new Context(options))
+            .WithOwner().GetAwaiter().GetResult()
+            .WithMember().GetAwaiter().GetResult()
+            .Build();
+
+        using var context = new Context(options);
+        var service = new ChoreService(context, CancellationToken.None);
+        Assert.Equal(2, chore.Members.Count);
+        Assert.True(await service
+                .DeleteMemberAsync(chore.Id,
+                    chore.OwnerId,
+                    chore.Members.First(m => !m.IsAdmin).UserId));
+        chore = await context.Chores.FirstAsync();
+        Assert.Equal(1, chore.Members.Count);
+    }
+
+    [Fact]
+    public async Task DeleteMember_Members_Can_Leave_By_Themselves()
+    {
+        var (connection, options) = await DbTestHelper.SetupTestDbAsync();
+        Chore chore = await new DbTestChoreBuilder(new Context(options))
+            .WithOwner().GetAwaiter().GetResult()
+            .WithMember().GetAwaiter().GetResult()
+            .Build();
+        int memberId = chore.Members
+            .Where(m => !m.IsAdmin)
+            .Select(m => m.UserId)
+            .First();
+
+        using var context = new Context(options);
+        var service = new ChoreService(context, CancellationToken.None);
+        Assert.Equal(2, chore.Members.Count);
+        Assert.True(await service
+                .DeleteMemberAsync(chore.Id, memberId, memberId));
+        chore = await context.Chores.FirstAsync();
+        Assert.Equal(1, chore.Members.Count);
+    }
+
+    [Fact]
+    public async Task DeleteMember_Deletes_Chore_If_Owner_Leaves()
+    {
+        var (connection, options) = await DbTestHelper.SetupTestDbAsync();
+        Chore chore = await new DbTestChoreBuilder(new Context(options))
+            .WithOwner().GetAwaiter().GetResult()
+            .WithMember().GetAwaiter().GetResult()
+            .Build();
+
+        using var context = new Context(options);
+        var service = new ChoreService(context, CancellationToken.None);
+        Assert.Equal(2, chore.Members.Count);
+        Assert.True(await service
+                .DeleteMemberAsync(chore.Id, chore.OwnerId, chore.OwnerId));
+        Assert.Null(await context.Chores.FirstOrDefaultAsync());
+    }
+
+    [Fact]
+    public async Task DeleteMember_Admins_Cant_Delete_Eachother()
+    {
+        var (connection, options) = await DbTestHelper.SetupTestDbAsync();
+        Chore chore = await new DbTestChoreBuilder(new Context(options))
+            .WithOwner().GetAwaiter().GetResult()
+            .WithAdmin("admin1").GetAwaiter().GetResult()
+            .WithAdmin("admin2").GetAwaiter().GetResult()
+            .Build();
+        int[] adminIds = chore.Members
+            .Where(m =>
+                m.UserId != chore.OwnerId
+                && m.IsAdmin)
+            .Select(m => m.UserId)
+            .Take(2)
+            .ToArray();
+
+        using var context = new Context(options);
+        var service = new ChoreService(context, CancellationToken.None);
+        Assert.Equal(3, chore.Members.Count);
+        Assert.False(await service
+                .DeleteMemberAsync(chore.Id, adminIds[0], adminIds[1]));
+        chore = await context.Chores.FirstAsync();
+        Assert.Equal(3, chore.Members.Count);
+    }
+
+    [Fact]
+    public async Task SetAdminStatusAsync_Owner_Can_Promote()
+    {
+        var (connection, options) = await DbTestHelper.SetupTestDbAsync();
+        Chore chore = await new DbTestChoreBuilder(new Context(options))
+            .WithOwner().GetAwaiter().GetResult()
+            .WithMember().GetAwaiter().GetResult()
+            .Build();
+
+        using var context = new Context(options);
+        var service = new ChoreService(context, CancellationToken.None);
+        Assert.Equal(1, chore.Members.Where(m => m.IsAdmin).Count());
+        Assert.True(await service.SetAdminStatusAsync(chore.Id,
+                chore.OwnerId,
+                chore.Members.Where(m => !m.IsAdmin)
+                    .Select(m => m.UserId)
+                    .First(),
+                true));
+        chore = await context.Chores.FirstAsync();
+        Assert.Equal(2, chore.Members.Where(m => m.IsAdmin).Count());
+    }
+
+    [Fact]
+    public async Task SetAdminStatusAsync_Admins_Cant_Demote_Eachother()
+    {
+        var (connection, options) = await DbTestHelper.SetupTestDbAsync();
+        Chore chore = await new DbTestChoreBuilder(new Context(options))
+            .WithOwner().GetAwaiter().GetResult()
+            .WithAdmin("admin1").GetAwaiter().GetResult()
+            .WithAdmin("admin2").GetAwaiter().GetResult()
+            .Build();
+        int[] adminIds = chore.Members
+            .Where(m =>
+                m.UserId != chore.OwnerId
+                && m.IsAdmin)
+            .Select(m => m.UserId)
+            .Take(2)
+            .ToArray();
+
+        using var context = new Context(options);
+        var service = new ChoreService(context, CancellationToken.None);
+        Assert.Equal(3, chore.Members.Where(m => m.IsAdmin).Count());
+        Assert.False(await service
+                .SetAdminStatusAsync(chore.Id, adminIds[0], adminIds[1], false));
+        chore = await context.Chores.FirstAsync();
+        Assert.Equal(3, chore.Members.Where(m => m.IsAdmin).Count());
+    }
+
+    [Fact]
+    public async Task SetAdminStatusAsync_Regular_Members_Cant_Promote_Eachother()
+    {
+        var (connection, options) = await DbTestHelper.SetupTestDbAsync();
+        Chore chore = await new DbTestChoreBuilder(new Context(options))
+            .WithOwner().GetAwaiter().GetResult()
+            .WithMember("member1").GetAwaiter().GetResult()
+            .WithMember("member2").GetAwaiter().GetResult()
+            .Build();
+        int[] membersIds = chore.Members
+            .Where(m => !m.IsAdmin)
+            .Select(m => m.UserId)
+            .Take(2)
+            .ToArray();
+
+        using var context = new Context(options);
+        var service = new ChoreService(context, CancellationToken.None);
+        Assert.Equal(1, chore.Members.Where(m => m.IsAdmin).Count());
+        Assert.False(await service
+                .SetAdminStatusAsync(chore.Id, membersIds[0], membersIds[1], false));
+        chore = await context.Chores.FirstAsync();
+        Assert.Equal(1, chore.Members.Where(m => m.IsAdmin).Count());
     }
 }

@@ -79,7 +79,7 @@ public class ChoreService(Context db, CancellationToken token)
         (int userId, int choreId, bool isPaused) =>
         await db.Chores
             .Where(ch => ch.Id == choreId)
-            .Where(ch => ch.OwnerId == choreId 
+            .Where(ch => ch.OwnerId == choreId
                     || ch.Members.Any(m => m.UserId == userId && m.IsAdmin))
             .Where(ch => ch.CurrentQueueMemberIdx.HasValue)  // don't allow empty chores to be started
             .ExecuteUpdateAsync(setters =>
@@ -290,7 +290,7 @@ public class ChoreService(Context db, CancellationToken token)
 
         bool isOwner = chore.OwnerId == requesterId;
         bool isAdmin = chore.Members.Any(m => m.UserId == requesterId && m.IsAdmin);
-        bool isSelf = requesterId == targetUserId; // Are you removing yourself?
+        bool isSelf = requesterId == targetUserId;
 
         if (!isOwner && !isAdmin && !isSelf) return false;
         if (targetUserId == chore.OwnerId && !isOwner) return false;
@@ -300,7 +300,7 @@ public class ChoreService(Context db, CancellationToken token)
 
         if (!isOwner && isAdmin && targetMember.IsAdmin && !isSelf) return false;
 
-        if (chore.Members.Count == 1)
+        if (isOwner && isSelf)
         {
             return await DeleteChoreAsync(choreId, requesterId);
         }

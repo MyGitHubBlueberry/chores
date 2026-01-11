@@ -33,7 +33,7 @@ public class DbTestChoreBuilder(Context db)
         return this;
     }
 
-    public async Task<DbTestChoreBuilder> WithAdmin(string name = "user")
+    public async Task<DbTestChoreBuilder> WithAdmin(string name = "admin")
     {
         User user = await DbTestHelper.CreateAndAddUser(name, db);
         chore.Members.Add(new ChoreMember
@@ -44,7 +44,7 @@ public class DbTestChoreBuilder(Context db)
         return this;
     }
 
-    public async Task<DbTestChoreBuilder> WithUser(string name = "user")
+    public async Task<DbTestChoreBuilder> WithMember(string name = "member")
     {
         User user = await DbTestHelper.CreateAndAddUser(name, db);
         chore.Members.Add(new ChoreMember
