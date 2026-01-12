@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading;
@@ -370,7 +371,6 @@ public class ChoreService(Context db, CancellationToken token)
     #endregion
 
     #region QueueManagement
-    //add new queue items
     public async Task<bool> ExtendQueueAsync(int choreId, int days = default)
     {
         var chore = await db.Chores
@@ -379,8 +379,7 @@ public class ChoreService(Context db, CancellationToken token)
             .FirstOrDefaultAsync(token);
         if (chore is null || !chore.CurrentQueueMemberIdx.HasValue)
             return false;
-        //get true next queue member idx
-        int newQueueMemberRotationOrderIdx = chore.CurrentQueueMemberIdx ?? 0
+        int newQueueMemberRotationOrderIdx = (chore.CurrentQueueMemberIdx ?? 0)
             + chore.QueueItems.Count;
         int[] membersIdsFromRotaionOrder = chore.Members
             .Where(m => m.RotationOrder.HasValue)
@@ -389,8 +388,11 @@ public class ChoreService(Context db, CancellationToken token)
             .ToArray();
         int memberCount = membersIdsFromRotaionOrder.Length;
         DateTime date = chore.QueueItems.LastOrDefault()?.ScheduledDate
-            ?? chore.StartDate;
-        //TODO: prbbly should change this to add up to end of the mounth (account for current queued choreitems and reference their date as starting point instead of utcnow)
+            ?? (chore.StartDate < DateTime.UtcNow
+                ? DateTime.UtcNow
+                : chore.StartDate);
+
+        //TODO: prbbly should change this to add up to end of the month (account for current queued choreitems and reference their date as starting point instead of utcnow)
         if (days <= 0)
             days = DateTime.DaysInMonth(DateTime.UtcNow.Year, DateTime.UtcNow.Month);
         //generate next queue items
@@ -399,7 +401,9 @@ public class ChoreService(Context db, CancellationToken token)
         {
             queueItems[i] = new ChoreQueue
             {
-                AssignedMemberId = membersIdsFromRotaionOrder[i % memberCount],
+                AssignedMemberId = 
+                    membersIdsFromRotaionOrder
+                        [(newQueueMemberRotationOrderIdx + i) % memberCount],
                 ScheduledDate = date
             };
             date += chore.Interval + chore.Duration;
@@ -523,7 +527,6 @@ public class ChoreService(Context db, CancellationToken token)
         return true;
     }
 
-    // TODO: redo chunk logic when i add insertion or deletion or individual queue entries
     // start with current idx in chore and go with chunks from there? what about insertions and deletions though...
     public async Task<bool> InsertMemberInQueueAsync
         (int choreId, int requesterId, int memberId, int desiredOrderRotationIdx)
@@ -549,26 +552,35 @@ public class ChoreService(Context db, CancellationToken token)
             return true;
         }
 
-        DateTime date = chore.QueueItems
+        var orderedQueue = chore.QueueItems
+            .OrderBy(q => q.ScheduledDate);
+        DateTime startDate = orderedQueue
+            .First().ScheduledDate;
+        DateTime date = orderedQueue
             .Skip(desiredOrderRotationIdx - 1)
-            .FirstOrDefault()?.ScheduledDate
-                ?? chore.StartDate;
+            .First().ScheduledDate;
+        var itemsToAdd = 
+            new List<ChoreQueue>(orderedQueue.Count() / rotationMemberCount);
 
-        //TODO: REDO LOGIC, CHUNKS ARE NOT FITTING FOR THE TASK
-        foreach (ChoreQueue[] chunk in chore.QueueItems
-                .Skip(desiredOrderRotationIdx - 1).Chunk(rotationMemberCount))
+        foreach (ChoreQueue[] chunk in orderedQueue
+                .Chunk(rotationMemberCount))
         {
-            chore.QueueItems.Add(new ChoreQueue
+            itemsToAdd.Add(new ChoreQueue
             {
                 ScheduledDate = chunk.FirstOrDefault()?.ScheduledDate ?? date,
                 AssignedMemberId = memberId
             });
+
             foreach (var choreQueue in chunk)
             {
                 choreQueue.ScheduledDate += chore.Duration + chore.Interval;
+                if (choreQueue.AssignedMemberId >= memberId) 
+                    choreQueue.AssignedMemberId++;
             }
             date = chunk.Last().ScheduledDate + chore.Interval;
         }
+
+        itemsToAdd.ForEach(i => chore.QueueItems.Add(i));
         await db.SaveChangesAsync(token);
         return true;
     }
@@ -636,16 +648,16 @@ public class ChoreService(Context db, CancellationToken token)
 
         foreach (var item in orderedQueue)
         {
-            if (item.AssignedMemberId == memberId)
-            {
-                prevDelteteMember = item;
-                continue;
-            }
             if (prevDelteteMember is not null)
             {
                 offset += (item.ScheduledDate - prevDelteteMember.ScheduledDate)
                     .Duration();
                 prevDelteteMember = null;
+            }
+            if (item.AssignedMemberId == memberId)
+            {
+                prevDelteteMember = item;
+                continue;
             }
             item.ScheduledDate -= offset;
         }
