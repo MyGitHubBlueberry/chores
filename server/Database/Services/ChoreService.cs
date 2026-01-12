@@ -467,7 +467,7 @@ public class ChoreService(Context db, CancellationToken token)
     // insert (insert new queue item or insert member in queue) (don't forget to shift dates)
     // do not allow overlap
     // add offset
-    public async Task<bool> InsertEntryInQueueAsync
+    public async Task<bool> InsertQueueEntryAsync
         (int choreId, int requesterId, ChoreQueue entry)
     {
         var chore = await db.Chores
@@ -503,15 +503,15 @@ public class ChoreService(Context db, CancellationToken token)
             }
         }
         var afterItems = chore.QueueItems
-                .Where(q => q.ScheduledDate >= entry.ScheduledDate);
+                .Where(q => q.ScheduledDate >= entry.ScheduledDate)
+                .OrderBy(q => q.ScheduledDate);
         if (afterItems is not null)
         {
             TimeSpan interval = entry.ScheduledDate
                 + chore.Duration + chore.Interval - afterItems.First().ScheduledDate;
             if (interval > TimeSpan.Zero)
             {
-                foreach (var item in chore.QueueItems
-                        .Where(q => q.ScheduledDate >= entry.ScheduledDate))
+                foreach (var item in afterItems)
                 {
                     item.ScheduledDate += interval;
                 }
@@ -572,9 +572,50 @@ public class ChoreService(Context db, CancellationToken token)
         await db.SaveChangesAsync(token);
         return true;
     }
+
     // delete (when removing member and when removing one queue item) ()
-   
+    public async Task<bool> DeleteQueueEntryAsync
+        (int choreId, int requesterId, ChoreQueue entry)
+    {
+        var chore = await db.Chores
+            .Include(ch => ch.QueueItems)
+            .Where(ch => ch.Members.Any(m => m.UserId == requesterId && m.IsAdmin))
+            .Where(ch => ch.Members.Any(m => m.UserId == entry.AssignedMemberId))
+            .FirstOrDefaultAsync(token);
+        if (chore is null) return false;
+        if (!chore.QueueItems
+            .Any(q => entry.AssignedMemberId == q.AssignedMemberId
+                    && entry.ScheduledDate == q.ScheduledDate)) return false;
+
+        var afterItems = chore.QueueItems
+                .Where(q => q.ScheduledDate > entry.ScheduledDate)
+                .OrderBy(q => q.ScheduledDate);
+        if (afterItems is not null)
+        {
+            TimeSpan interval = entry.ScheduledDate
+                + chore.Duration + chore.Interval - afterItems.First().ScheduledDate;
+            if (interval > TimeSpan.Zero)
+            {
+                foreach (var item in afterItems)
+                {
+                    item.ScheduledDate -= interval;
+                }
+            }
+        }
+        chore.QueueItems.Remove(chore.QueueItems.First(q =>
+                    q.ScheduledDate == entry.ScheduledDate
+                    && q.AssignedMemberId == entry.AssignedMemberId));
+        await db.SaveChangesAsync(token);
+        return true;
+    }
+
+    // public async Task<bool> DeleteMemberFromQueueAsync
+    //     (int choreId, int requesterId, ChoreQueue entry)
+    // {
+    // }
     // discard queue changes (should remove swaps, insertions, inconsistent duration and interval times) maybe regen will be better, honestly
+    // 
+    // public async Task<bool> RegenerateQueueAsync()
 
     #endregion
 }
