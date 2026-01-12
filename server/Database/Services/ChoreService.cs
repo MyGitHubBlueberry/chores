@@ -371,8 +371,9 @@ public class ChoreService(Context db, CancellationToken token)
     #endregion
 
     #region QueueManagement
-    public async Task<bool> ExtendQueueAsync(int choreId, int days = default)
+    public async Task<bool> ExtendQueueAsync(int choreId, int days)
     {
+        if (days <= 0) return false;
         var chore = await db.Chores
             .Include(ch => ch.Members)
             .Where(ch => ch.Id == choreId)
@@ -392,12 +393,11 @@ public class ChoreService(Context db, CancellationToken token)
                 ? DateTime.UtcNow
                 : chore.StartDate);
 
-        //TODO: prbbly should change this to add up to end of the month (account for current queued choreitems and reference their date as starting point instead of utcnow)
-        if (days <= 0)
-            days = DateTime.DaysInMonth(DateTime.UtcNow.Year, DateTime.UtcNow.Month);
-        //generate next queue items
-        var queueItems = new ChoreQueue[days];
-        for (int i = 0; i < days; i++)
+        TimeSpan durationToCover = TimeSpan.FromDays(days);
+        int totalItems = int
+            .Max(1, (int)(durationToCover / (chore.Duration + chore.Interval)));
+        var queueItems = new ChoreQueue[totalItems];
+        for (int i = 0; i < queueItems.Length; i++)
         {
             queueItems[i] = new ChoreQueue
             {
@@ -509,7 +509,7 @@ public class ChoreService(Context db, CancellationToken token)
         var afterItems = chore.QueueItems
                 .Where(q => q.ScheduledDate >= entry.ScheduledDate)
                 .OrderBy(q => q.ScheduledDate);
-        if (afterItems is not null)
+        if (afterItems.Any())
         {
             TimeSpan interval = entry.ScheduledDate
                 + chore.Duration + chore.Interval - afterItems.First().ScheduledDate;
@@ -544,10 +544,15 @@ public class ChoreService(Context db, CancellationToken token)
             .Where(m => m.RotationOrder.HasValue).Count();
         desiredOrderRotationIdx = Math
             .Clamp(desiredOrderRotationIdx, 0, rotationMemberCount);
+        chore.Members
+            .Where(m => m.RotationOrder.HasValue 
+                && m.RotationOrder >= desiredOrderRotationIdx)
+            .ToList()
+            .ForEach(m => m.RotationOrder++);
+        member.RotationOrder = desiredOrderRotationIdx;
 
         if (chore.QueueItems.Count == 0)
         {
-            member.RotationOrder = desiredOrderRotationIdx;
             await db.SaveChangesAsync(token);
             return true;
         }
@@ -574,8 +579,6 @@ public class ChoreService(Context db, CancellationToken token)
             foreach (var choreQueue in chunk)
             {
                 choreQueue.ScheduledDate += chore.Duration + chore.Interval;
-                if (choreQueue.AssignedMemberId >= memberId) 
-                    choreQueue.AssignedMemberId++;
             }
             date = chunk.Last().ScheduledDate + chore.Interval;
         }
@@ -602,7 +605,7 @@ public class ChoreService(Context db, CancellationToken token)
         var afterItems = chore.QueueItems
                 .Where(q => q.ScheduledDate > entry.ScheduledDate)
                 .OrderBy(q => q.ScheduledDate);
-        if (afterItems is not null)
+        if (afterItems.Any())
         {
             TimeSpan interval = entry.ScheduledDate
                 + chore.Duration + chore.Interval - afterItems.First().ScheduledDate;
@@ -678,12 +681,11 @@ public class ChoreService(Context db, CancellationToken token)
             .FirstOrDefaultAsync(token);
         if (chore is null) return false;
 
-        int choresPerDay = int.Max(1, (int)(TimeSpan.FromDays(1) / chore.Duration));
-        int choresCount = chore.QueueItems.Count;
-        chore.QueueItems.Clear();
         using var transaction = await db.Database.BeginTransactionAsync(token);
+        chore.QueueItems.Clear();
         await db.SaveChangesAsync(token);
-        if (!await ExtendQueueAsync(choreId, choresPerDay * choresCount))
+        if (!await ExtendQueueAsync(choreId, 
+                    DateTime.DaysInMonth(DateTime.UtcNow.Year, DateTime.UtcNow.Month)))
             return false;
         await transaction.CommitAsync(token);
         return true;
