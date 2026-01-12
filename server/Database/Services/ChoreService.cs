@@ -609,13 +609,73 @@ public class ChoreService(Context db, CancellationToken token)
         return true;
     }
 
-    // public async Task<bool> DeleteMemberFromQueueAsync
-    //     (int choreId, int requesterId, ChoreQueue entry)
-    // {
-    // }
+    public async Task<bool> DeleteMemberFromQueueAsync
+        (int choreId, int requesterId, int memberId)
+    {
+        var chore = await db.Chores
+            .Include(ch => ch.QueueItems)
+            .Include(ch => ch.Members)
+            .Where(ch => ch.Members.Any(m => m.UserId == requesterId && m.IsAdmin))
+            .FirstOrDefaultAsync(token);
+        if (chore is null) return false;
+        var member = chore.Members
+            .Where(m => m.UserId == memberId && m.RotationOrder.HasValue)
+            .FirstOrDefault();
+        if (member is null) return false;
+        if (chore.Members.Where(m => m.RotationOrder.HasValue).Count() == 1)
+        {
+            chore.QueueItems.Clear();
+            member.RotationOrder = null;
+
+            await db.SaveChangesAsync(token);
+        }
+        TimeSpan offset = TimeSpan.Zero;
+        var orderedQueue = chore.QueueItems
+            .OrderBy(q => q.ScheduledDate);
+        ChoreQueue? prevDelteteMember = null;
+
+        foreach (var item in orderedQueue)
+        {
+            if (item.AssignedMemberId == memberId)
+            {
+                prevDelteteMember = item;
+                continue;
+            }
+            if (prevDelteteMember is not null)
+            {
+                offset += (item.ScheduledDate - prevDelteteMember.ScheduledDate)
+                    .Duration();
+                prevDelteteMember = null;
+            }
+            item.ScheduledDate -= offset;
+        }
+
+        db.ChoreQueue.RemoveRange(chore.QueueItems
+                    .Where(q => q.AssignedMemberId == memberId));
+        member.RotationOrder = null;
+        await db.SaveChangesAsync(token);
+        return true;
+    }
+
     // discard queue changes (should remove swaps, insertions, inconsistent duration and interval times) maybe regen will be better, honestly
-    // 
-    // public async Task<bool> RegenerateQueueAsync()
+    public async Task<bool> RegenerateQueueAsync(int choreId, int userId)
+    {
+        var chore = await db.Chores
+            .Include(ch => ch.QueueItems)
+            .Where(ch => ch.Members.Any(m => m.UserId == userId && m.IsAdmin))
+            .FirstOrDefaultAsync(token);
+        if (chore is null) return false;
+
+        int choresPerDay = int.Max(1, (int)(TimeSpan.FromDays(1) / chore.Duration));
+        int choresCount = chore.QueueItems.Count;
+        chore.QueueItems.Clear();
+        using var transaction = await db.Database.BeginTransactionAsync(token);
+        await db.SaveChangesAsync(token);
+        if (!await ExtendQueueAsync(choreId, choresPerDay * choresCount))
+            return false;
+        await transaction.CommitAsync(token);
+        return true;
+    }
 
     #endregion
 }
