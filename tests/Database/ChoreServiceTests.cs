@@ -453,4 +453,63 @@ public class ChoreServiceTests
         chore = await context.Chores.FirstAsync();
         Assert.Equal(1, chore.Members.Where(m => m.IsAdmin).Count());
     }
+
+    [Fact]
+    public async Task ExtendQueue_Doesnt_Work_Without_Active_Members()
+    {
+        var (connection, options) = await DbTestHelper.SetupTestDbAsync();
+        Chore chore = await new DbTestChoreBuilder(new Context(options))
+            .WithOwner().GetAwaiter().GetResult()
+            .Build();
+
+        using (var context = new Context(options))
+        {
+            Assert.False(await new ChoreService(context, CancellationToken.None)
+                    .ExtendQueueAsync(chore.Id, 30));
+        }
+        using (var context = new Context(options))
+        {
+            Assert.Empty(context.ChoreQueue);
+        }
+    }
+
+    [Fact]
+    public async Task ExtendQueue_Generates_Right_Amount_Of_Days()
+    {
+        var (connection, options) = await DbTestHelper.SetupTestDbAsync();
+
+        Chore chore;
+        int days = 3;
+
+        using (var context = new Context(options))
+        {
+            chore = await new DbTestChoreBuilder(context)
+                .WithOwner().GetAwaiter().GetResult()
+                .WithDuration(TimeSpan.FromDays(1))
+                .WithInterval(TimeSpan.Zero)
+                .WithMember("member1").GetAwaiter().GetResult()
+                .WithMember("member2").GetAwaiter().GetResult()
+                .Build();
+            var members = chore.Members
+                .Where(m => !m.IsAdmin)
+                .Take(2)
+                .ToArray();
+            for (int i = 0; i < members.Length; i++)
+            {
+                members[i].RotationOrder = i;
+            }
+            chore.CurrentQueueMemberIdx = 0;
+            await context.SaveChangesAsync();
+        }
+
+        using (var context = new Context(options))
+        {
+            Assert.Empty(chore.QueueItems);
+            Assert.True(await new ChoreService(context, CancellationToken.None)
+                    .ExtendQueueAsync(chore.Id, days));
+            chore = await context.Chores.Include(ch => ch.Members).FirstAsync();
+            Assert.NotEmpty(chore.QueueItems);
+            Assert.Equal(days, chore.QueueItems.Count);
+        }
+    }
 }

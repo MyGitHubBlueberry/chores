@@ -55,6 +55,18 @@ public class DbTestChoreBuilder(Context db)
         return this;
     }
 
+    public DbTestChoreBuilder WithDuration(TimeSpan duration)
+    {
+        chore.Duration = duration;
+        return this;
+    }
+
+    public DbTestChoreBuilder WithInterval(TimeSpan interval)
+    {
+        chore.Interval = interval;
+        return this;
+    }
+
     public async Task<Chore> Build()
     {
         Assert.NotNull(chore.Title);
