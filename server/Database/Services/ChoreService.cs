@@ -9,7 +9,8 @@ using Shared.Networking.Packets;
 
 namespace Database.Services;
 
-//todo: don't allow for setting starting date in past
+//todo: maybe move duration and interval to queue items?
+//todo: don't allow for setting starting date in past ???
 //todo: when chore is paused, keep first queueItems starting date at utcnow (maybe add background worker to add day to every queue entry when paused)
 //TODO: return responces where necesarry
 //TODO: background service who will call method to cleanup missed tasks
@@ -176,7 +177,7 @@ public class ChoreService(Context db, CancellationToken token)
             .Include(q => q.Chore)
             .Where(q => q.ScheduledDate + q.Chore.Duration < DateTime.UtcNow) //todo: fix warning
             .ToListAsync(token);
-        //todo: maybe do this in parallel?
+        //TODO: maybe do this in parallel?
         foreach (var item in missedItems)
         {
             Debug.Assert(item.Chore is not null);
@@ -370,16 +371,16 @@ public class ChoreService(Context db, CancellationToken token)
 
     #region QueueManagement
     //add new queue items
-    public async Task<bool> ExtendQueueAsync(int choreId, int days = default) 
+    public async Task<bool> ExtendQueueAsync(int choreId, int days = default)
     {
         var chore = await db.Chores
             .Include(ch => ch.Members)
             .Where(ch => ch.Id == choreId)
             .FirstOrDefaultAsync(token);
-        if (chore is null || !chore.CurrentQueueMemberIdx.HasValue) 
+        if (chore is null || !chore.CurrentQueueMemberIdx.HasValue)
             return false;
         //get true next queue member idx
-        int newQueueMemberRotationOrderIdx = chore.CurrentQueueMemberIdx ?? 0 
+        int newQueueMemberRotationOrderIdx = chore.CurrentQueueMemberIdx ?? 0
             + chore.QueueItems.Count;
         int[] membersIdsFromRotaionOrder = chore.Members
             .Where(m => m.RotationOrder.HasValue)
@@ -387,15 +388,17 @@ public class ChoreService(Context db, CancellationToken token)
             .Select(m => m.UserId)
             .ToArray();
         int memberCount = membersIdsFromRotaionOrder.Length;
-        DateTime date = chore.QueueItems.LastOrDefault()?.ScheduledDate 
+        DateTime date = chore.QueueItems.LastOrDefault()?.ScheduledDate
             ?? chore.StartDate;
         //TODO: prbbly should change this to add up to end of the mounth (account for current queued choreitems and reference their date as starting point instead of utcnow)
-        if (days <= 0) 
+        if (days <= 0)
             days = DateTime.DaysInMonth(DateTime.UtcNow.Year, DateTime.UtcNow.Month);
         //generate next queue items
         var queueItems = new ChoreQueue[days];
-        for (int i = 0; i < days; i++) {
-            queueItems[i] = new ChoreQueue {
+        for (int i = 0; i < days; i++)
+        {
+            queueItems[i] = new ChoreQueue
+            {
                 AssignedMemberId = membersIdsFromRotaionOrder[i % memberCount],
                 ScheduledDate = date
             };
@@ -424,7 +427,8 @@ public class ChoreService(Context db, CancellationToken token)
         return true;
     }
 
-    public async Task<bool> SwapMembersInQueueAsync(int requesterId, int choreId, int userAId, int userBId)
+    public async Task<bool> SwapMembersInQueueAsync
+        (int requesterId, int choreId, int userAId, int userBId)
     {
         var chore = await db.Chores
             .Include(ch => ch.QueueItems)
@@ -438,7 +442,7 @@ public class ChoreService(Context db, CancellationToken token)
                 || !a.RotationOrder.HasValue
                 || !b.RotationOrder.HasValue) return false;
 
-        if (chore.QueueItems.Count != 0) 
+        if (chore.QueueItems.Count != 0)
         {
             var exUserAQueueItemIdx = chore.QueueItems
                 .Where(q => q.AssignedMemberId == a.UserId)
@@ -459,8 +463,118 @@ public class ChoreService(Context db, CancellationToken token)
         a.RotationOrder ^= b.RotationOrder;
         return true;
     }
+
     // insert (insert new queue item or insert member in queue) (don't forget to shift dates)
+    // do not allow overlap
+    // add offset
+    public async Task<bool> InsertEntryInQueueAsync
+        (int choreId, int requesterId, ChoreQueue entry)
+    {
+        var chore = await db.Chores
+            .Include(ch => ch.QueueItems)
+            .Include(ch => ch.Members)
+            .Where(ch => ch.Members.Any(m => m.UserId == requesterId && m.IsAdmin))
+            .FirstOrDefaultAsync(token);
+        if (chore is null) return false;
+        var member = chore.Members.FirstOrDefault(m => m.UserId == entry.AssignedMemberId);
+        if (member is null) return false;
+        if (chore.StartDate > entry.ScheduledDate) return false;
+
+        int rotationMemberCount = chore.Members
+            .Where(m => m.RotationOrder.HasValue).Count();
+
+        if (chore.QueueItems.Count == 0)
+        {
+            chore.QueueItems.Add(entry);
+            await db.SaveChangesAsync(token);
+            return true;
+        }
+        ChoreQueue? lastEntry = chore.QueueItems
+            .Where(q => q.ScheduledDate < entry.ScheduledDate)
+            .FirstOrDefault();
+
+        if (lastEntry is not null)
+        {
+            DateTime reservedTimeForNextChore = lastEntry.ScheduledDate
+                + chore.Duration + chore.Interval;
+            if (reservedTimeForNextChore > entry.ScheduledDate)
+            {
+                entry.ScheduledDate = reservedTimeForNextChore;
+            }
+        }
+        var afterItems = chore.QueueItems
+                .Where(q => q.ScheduledDate >= entry.ScheduledDate);
+        if (afterItems is not null)
+        {
+            TimeSpan interval = entry.ScheduledDate
+                + chore.Duration + chore.Interval - afterItems.First().ScheduledDate;
+            if (interval > TimeSpan.Zero)
+            {
+                foreach (var item in chore.QueueItems
+                        .Where(q => q.ScheduledDate >= entry.ScheduledDate))
+                {
+                    item.ScheduledDate += interval;
+                }
+            }
+        }
+        chore.QueueItems.Add(entry);
+
+        await db.SaveChangesAsync(token);
+        return true;
+    }
+
+    // TODO: redo chunk logic when i add insertion or deletion or individual queue entries
+    // start with current idx in chore and go with chunks from there? what about insertions and deletions though...
+    public async Task<bool> InsertMemberInQueueAsync
+        (int choreId, int requesterId, int memberId, int desiredOrderRotationIdx)
+    {
+        var chore = await db.Chores
+            .Include(ch => ch.QueueItems)
+            .Include(ch => ch.Members)
+            .Where(ch => ch.Members.Any(m => m.UserId == requesterId && m.IsAdmin))
+            .FirstOrDefaultAsync(token);
+        if (chore is null) return false;
+        var member = chore.Members.FirstOrDefault(m => m.UserId == memberId);
+        if (member is null) return false;
+
+        int rotationMemberCount = chore.Members
+            .Where(m => m.RotationOrder.HasValue).Count();
+        desiredOrderRotationIdx = Math
+            .Clamp(desiredOrderRotationIdx, 0, rotationMemberCount);
+
+        if (chore.QueueItems.Count == 0)
+        {
+            member.RotationOrder = desiredOrderRotationIdx;
+            await db.SaveChangesAsync(token);
+            return true;
+        }
+
+        DateTime date = chore.QueueItems
+            .Skip(desiredOrderRotationIdx - 1)
+            .FirstOrDefault()?.ScheduledDate
+                ?? chore.StartDate;
+
+        //TODO: REDO LOGIC, CHUNKS ARE NOT FITTING FOR THE TASK
+        foreach (ChoreQueue[] chunk in chore.QueueItems
+                .Skip(desiredOrderRotationIdx - 1).Chunk(rotationMemberCount))
+        {
+            chore.QueueItems.Add(new ChoreQueue
+            {
+                ScheduledDate = chunk.FirstOrDefault()?.ScheduledDate ?? date,
+                AssignedMemberId = memberId
+            });
+            foreach (var choreQueue in chunk)
+            {
+                choreQueue.ScheduledDate += chore.Duration + chore.Interval;
+            }
+            date = chunk.Last().ScheduledDate + chore.Interval;
+        }
+        await db.SaveChangesAsync(token);
+        return true;
+    }
     // delete (when removing member and when removing one queue item) ()
+   
+    // discard queue changes (should remove swaps, insertions, inconsistent duration and interval times) maybe regen will be better, honestly
 
     #endregion
 }
