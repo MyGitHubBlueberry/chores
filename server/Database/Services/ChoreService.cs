@@ -446,6 +446,7 @@ public class ChoreService(Context db, CancellationToken token)
         if (a is null || b is null
                 || !a.RotationOrder.HasValue
                 || !b.RotationOrder.HasValue) return false;
+        if (userBId == userAId) return true;
 
         if (chore.QueueItems.Count != 0)
         {

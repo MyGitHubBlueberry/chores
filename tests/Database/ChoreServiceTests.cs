@@ -706,4 +706,43 @@ public class ChoreServiceTests
                     || membersAfterSwap[1].RotationOrder != members[1].RotationOrder);
         }
     }
+
+    [Fact]
+    public async Task SwapMembersInQueue_Swaps_Entries_InQueue()
+    {
+        var (connection, options) = await DbTestHelper.SetupTestDbAsync();
+        using var context = new Context(options);
+        var member1 = "member1";
+        var member2 = "member2";
+        var chore = await new DbTestChoreBuilder(context)
+            .WithOwner()
+            .WithMember(member1, 0)
+            .WithMember(member2, 1)
+            .WithDuration(TimeSpan.FromDays(1))
+            .BuildAsync();
+        var service = new ChoreService(context, CancellationToken.None);
+        var users = context.Users.ToArray();
+        Assert.True(await service.ExtendQueueAsync(chore.Id, 4));
+        var orderedNames = chore.QueueItems
+            .Join(users, 
+                    q => q.AssignedMemberId,
+                    u => u.Id,
+                    (q, u) => new { Username = u.Username, Date = q.ScheduledDate })
+            .OrderBy(entry => entry.Date)
+            .Select(entry => entry.Username)
+            .ToArray();
+        Assert.Equivalent(new string[]{ member1, member2, member1, member2 }, orderedNames);
+        var queueItemIds = chore.QueueItems.Take(2).Select(q => q.Id).ToArray();
+        Assert.True(await service
+                .SwapQueueItemsAsync(chore.Id, chore.OwnerId, queueItemIds[0], queueItemIds[1]));
+        orderedNames = chore.QueueItems
+            .Join(users, 
+                    q => q.AssignedMemberId,
+                    u => u.Id,
+                    (q, u) => new { Username = u.Username, Date = q.ScheduledDate })
+            .OrderBy(entry => entry.Date)
+            .Select(entry => entry.Username)
+            .ToArray();
+        Assert.Equivalent(new string[]{ member2, member1, member2, member1 }, orderedNames);
+    }
 }
