@@ -78,8 +78,8 @@ public class ChoreServiceTests
         using (var context = new Context(options))
         {
             chore = await new DbTestChoreBuilder(context)
-                .WithOwner().GetAwaiter().GetResult()
-                .Build();
+                .WithOwner()
+                .BuildAsync();
             notMember = await DbTestHelper.CreateAndAddUser("user", context);
         }
 
@@ -99,8 +99,8 @@ public class ChoreServiceTests
     {
         var (connection, options) = await DbTestHelper.SetupTestDbAsync();
         Chore chore = await new DbTestChoreBuilder(new Context(options))
-                .WithOwner().GetAwaiter().GetResult()
-                .Build();
+                .WithOwner()
+                .BuildAsync();
 
         using var context = new Context(options);
         Assert.NotEmpty(context.Chores);
@@ -116,9 +116,9 @@ public class ChoreServiceTests
     {
         var (connection, options) = await DbTestHelper.SetupTestDbAsync();
         Chore chore = await new DbTestChoreBuilder(new Context(options))
-                .WithOwner().GetAwaiter().GetResult()
-                .WithAdmin().GetAwaiter().GetResult()
-                .Build();
+                .WithOwner()
+                .WithAdmin()
+                .BuildAsync();
 
         int adminId = chore.Members
             .Where(m => m.IsAdmin && m.UserId != chore.OwnerId)
@@ -138,9 +138,9 @@ public class ChoreServiceTests
     {
         var (connection, options) = await DbTestHelper.SetupTestDbAsync();
         Chore chore = await new DbTestChoreBuilder(new Context(options))
-                .WithOwner().GetAwaiter().GetResult()
-                .WithMember().GetAwaiter().GetResult()
-                .Build();
+                .WithOwner()
+                .WithMember()
+                .BuildAsync();
         int userId = chore.Members
             .Where(m => !m.IsAdmin)
             .Select(m => m.UserId)
@@ -158,8 +158,8 @@ public class ChoreServiceTests
     {
         var (connection, options) = await DbTestHelper.SetupTestDbAsync();
         Chore chore = await new DbTestChoreBuilder(new Context(options))
-                .WithOwner().GetAwaiter().GetResult()
-                .Build();
+                .WithOwner()
+                .BuildAsync();
         var request = new UpdateChoreDetailsRequest(chore.Id,
                 "new", "new", "new");
         using var context = new Context(options);
@@ -178,8 +178,8 @@ public class ChoreServiceTests
         var (connection, options) = await DbTestHelper.SetupTestDbAsync();
         Chore chore = await new DbTestChoreBuilder(new Context(options))
                 .WithFill("Something")
-                .WithOwner().GetAwaiter().GetResult()
-                .Build();
+                .WithOwner()
+                .BuildAsync();
 
         using var context = new Context(options);
         var request = new UpdateChoreDetailsRequest(chore.Id);
@@ -198,9 +198,9 @@ public class ChoreServiceTests
         var startingValue = "Test";
         Chore chore = await new DbTestChoreBuilder(new Context(options))
                 .WithFill(startingValue)
-                .WithOwner().GetAwaiter().GetResult()
-                .WithMember().GetAwaiter().GetResult()
-                .Build();
+                .WithOwner()
+                .WithMember()
+                .BuildAsync();
         int userId = chore.Members
             .Where(m => !m.IsAdmin)
             .Select(m => m.UserId)
@@ -222,9 +222,9 @@ public class ChoreServiceTests
     {
         var (connection, options) = await DbTestHelper.SetupTestDbAsync();
         Chore chore = await new DbTestChoreBuilder(new Context(options))
-                .WithOwner().GetAwaiter().GetResult()
-                .WithMember().GetAwaiter().GetResult()
-                .Build();
+                .WithOwner()
+                .WithMember()
+                .BuildAsync();
         var request = new UpdateChoreScheduleRequest(chore.Id,
                 StartDate: DateTime.Parse("2005-12-12"),
                 Interval: TimeSpan.FromDays(3),
@@ -250,9 +250,9 @@ public class ChoreServiceTests
     {
         var (connection, options) = await DbTestHelper.SetupTestDbAsync();
         Chore chore = await new DbTestChoreBuilder(new Context(options))
-                .WithOwner().GetAwaiter().GetResult()
-                .WithMember().GetAwaiter().GetResult()
-                .Build();
+                .WithOwner()
+                .WithMember()
+                .BuildAsync();
         var request = new UpdateChoreScheduleRequest(chore.Id,
                 StartDate: DateTime.Parse("2005-12-12"),
                 Interval: TimeSpan.FromDays(3),
@@ -280,8 +280,8 @@ public class ChoreServiceTests
         using (var context = new Context(options))
         {
             chore = await new DbTestChoreBuilder(context)
-                    .WithOwner().GetAwaiter().GetResult()
-                    .Build();
+                    .WithOwner()
+                    .BuildAsync();
             user = await DbTestHelper.CreateAndAddUser("user", context);
         }
 
@@ -290,7 +290,7 @@ public class ChoreServiceTests
         using (var context = new Context(options))
         {
             var service = new ChoreService(context, CancellationToken.None);
-            Assert.Equal(1, chore.Members.Count);
+            Assert.Single(chore.Members);
             Assert.True(await service.AddMemberAsync(chore.OwnerId, request));
             chore = await context.Chores.FirstAsync();
             Assert.Equal(2, chore.Members.Count);
@@ -302,9 +302,9 @@ public class ChoreServiceTests
     {
         var (connection, options) = await DbTestHelper.SetupTestDbAsync();
         Chore chore = await new DbTestChoreBuilder(new Context(options))
-            .WithOwner().GetAwaiter().GetResult()
-            .WithMember().GetAwaiter().GetResult()
-            .Build();
+            .WithOwner()
+            .WithMember()
+            .BuildAsync();
 
         using var context = new Context(options);
         var service = new ChoreService(context, CancellationToken.None);
@@ -314,7 +314,7 @@ public class ChoreServiceTests
                     chore.OwnerId,
                     chore.Members.First(m => !m.IsAdmin).UserId));
         chore = await context.Chores.FirstAsync();
-        Assert.Equal(1, chore.Members.Count);
+        Assert.Single(chore.Members);
     }
 
     [Fact]
@@ -322,9 +322,9 @@ public class ChoreServiceTests
     {
         var (connection, options) = await DbTestHelper.SetupTestDbAsync();
         Chore chore = await new DbTestChoreBuilder(new Context(options))
-            .WithOwner().GetAwaiter().GetResult()
-            .WithMember().GetAwaiter().GetResult()
-            .Build();
+            .WithOwner()
+            .WithMember()
+            .BuildAsync();
         int memberId = chore.Members
             .Where(m => !m.IsAdmin)
             .Select(m => m.UserId)
@@ -336,7 +336,7 @@ public class ChoreServiceTests
         Assert.True(await service
                 .DeleteMemberAsync(chore.Id, memberId, memberId));
         chore = await context.Chores.FirstAsync();
-        Assert.Equal(1, chore.Members.Count);
+        Assert.Single(chore.Members);
     }
 
     [Fact]
@@ -344,9 +344,9 @@ public class ChoreServiceTests
     {
         var (connection, options) = await DbTestHelper.SetupTestDbAsync();
         Chore chore = await new DbTestChoreBuilder(new Context(options))
-            .WithOwner().GetAwaiter().GetResult()
-            .WithMember().GetAwaiter().GetResult()
-            .Build();
+            .WithOwner()
+            .WithMember()
+            .BuildAsync();
 
         using var context = new Context(options);
         var service = new ChoreService(context, CancellationToken.None);
@@ -361,10 +361,10 @@ public class ChoreServiceTests
     {
         var (connection, options) = await DbTestHelper.SetupTestDbAsync();
         Chore chore = await new DbTestChoreBuilder(new Context(options))
-            .WithOwner().GetAwaiter().GetResult()
-            .WithAdmin("admin1").GetAwaiter().GetResult()
-            .WithAdmin("admin2").GetAwaiter().GetResult()
-            .Build();
+            .WithOwner()
+            .WithAdmin("admin1")
+            .WithAdmin("admin2")
+            .BuildAsync();
         int[] adminIds = chore.Members
             .Where(m =>
                 m.UserId != chore.OwnerId
@@ -387,13 +387,13 @@ public class ChoreServiceTests
     {
         var (connection, options) = await DbTestHelper.SetupTestDbAsync();
         Chore chore = await new DbTestChoreBuilder(new Context(options))
-            .WithOwner().GetAwaiter().GetResult()
-            .WithMember().GetAwaiter().GetResult()
-            .Build();
+            .WithOwner()
+            .WithMember()
+            .BuildAsync();
 
         using var context = new Context(options);
         var service = new ChoreService(context, CancellationToken.None);
-        Assert.Equal(1, chore.Members.Where(m => m.IsAdmin).Count());
+        Assert.Single(chore.Members, m => m.IsAdmin);
         Assert.True(await service.SetAdminStatusAsync(chore.Id,
                 chore.OwnerId,
                 chore.Members.Where(m => !m.IsAdmin)
@@ -409,10 +409,10 @@ public class ChoreServiceTests
     {
         var (connection, options) = await DbTestHelper.SetupTestDbAsync();
         Chore chore = await new DbTestChoreBuilder(new Context(options))
-            .WithOwner().GetAwaiter().GetResult()
-            .WithAdmin("admin1").GetAwaiter().GetResult()
-            .WithAdmin("admin2").GetAwaiter().GetResult()
-            .Build();
+            .WithOwner()
+            .WithAdmin("admin1")
+            .WithAdmin("admin2")
+            .BuildAsync();
         int[] adminIds = chore.Members
             .Where(m =>
                 m.UserId != chore.OwnerId
@@ -435,10 +435,10 @@ public class ChoreServiceTests
     {
         var (connection, options) = await DbTestHelper.SetupTestDbAsync();
         Chore chore = await new DbTestChoreBuilder(new Context(options))
-            .WithOwner().GetAwaiter().GetResult()
-            .WithMember("member1").GetAwaiter().GetResult()
-            .WithMember("member2").GetAwaiter().GetResult()
-            .Build();
+            .WithOwner()
+            .WithMember("member1")
+            .WithMember("member2")
+            .BuildAsync();
         int[] membersIds = chore.Members
             .Where(m => !m.IsAdmin)
             .Select(m => m.UserId)
@@ -447,11 +447,11 @@ public class ChoreServiceTests
 
         using var context = new Context(options);
         var service = new ChoreService(context, CancellationToken.None);
-        Assert.Equal(1, chore.Members.Where(m => m.IsAdmin).Count());
+        Assert.Single(chore.Members, m => m.IsAdmin);
         Assert.False(await service
                 .SetAdminStatusAsync(chore.Id, membersIds[0], membersIds[1], false));
         chore = await context.Chores.FirstAsync();
-        Assert.Equal(1, chore.Members.Where(m => m.IsAdmin).Count());
+        Assert.Single(chore.Members, m => m.IsAdmin);
     }
 
     [Fact]
@@ -459,8 +459,8 @@ public class ChoreServiceTests
     {
         var (connection, options) = await DbTestHelper.SetupTestDbAsync();
         Chore chore = await new DbTestChoreBuilder(new Context(options))
-            .WithOwner().GetAwaiter().GetResult()
-            .Build();
+            .WithOwner()
+            .BuildAsync();
 
         using (var context = new Context(options))
         {
@@ -484,12 +484,12 @@ public class ChoreServiceTests
         using (var context = new Context(options))
         {
             chore = await new DbTestChoreBuilder(context)
-                .WithOwner().GetAwaiter().GetResult()
+                .WithOwner()
                 .WithDuration(TimeSpan.FromDays(1))
                 .WithInterval(TimeSpan.Zero)
-                .WithMember("member1").GetAwaiter().GetResult()
-                .WithMember("member2").GetAwaiter().GetResult()
-                .Build();
+                .WithMember("member1")
+                .WithMember("member2")
+                .BuildAsync();
             var members = chore.Members
                 .Where(m => !m.IsAdmin)
                 .Take(2)
@@ -527,12 +527,12 @@ public class ChoreServiceTests
         using (var context = new Context(options))
         {
             chore = await new DbTestChoreBuilder(context)
-                .WithOwner().GetAwaiter().GetResult()
+                .WithOwner()
                 .WithDuration(duration)
                 .WithInterval(TimeSpan.Zero)
-                .WithMember("member1").GetAwaiter().GetResult()
-                .WithMember("member2").GetAwaiter().GetResult()
-                .Build();
+                .WithMember("member1")
+                .WithMember("member2")
+                .BuildAsync();
             var members = chore.Members
                 .Where(m => !m.IsAdmin)
                 .Take(2)
@@ -582,12 +582,12 @@ public class ChoreServiceTests
         using (var context = new Context(options))
         {
             chore = await new DbTestChoreBuilder(context)
-                .WithOwner().GetAwaiter().GetResult()
+                .WithOwner()
                 .WithDuration(duration)
                 .WithInterval(interval)
-                .WithMember("member1").GetAwaiter().GetResult()
-                .WithMember("member2").GetAwaiter().GetResult()
-                .Build();
+                .WithMember("member1")
+                .WithMember("member2")
+                .BuildAsync();
             var members = chore.Members
                 .Where(m => !m.IsAdmin)
                 .Take(2)
@@ -622,11 +622,11 @@ public class ChoreServiceTests
         using (var context = new Context(options))
         {
             chore = await new DbTestChoreBuilder(context)
-                .WithOwner().GetAwaiter().GetResult()
+                .WithOwner()
                 .WithDuration(TimeSpan.FromDays(1))
-                .WithMember("member1").GetAwaiter().GetResult()
-                .WithMember("member2").GetAwaiter().GetResult()
-                .Build();
+                .WithMember("member1")
+                .WithMember("member2")
+                .BuildAsync();
             var members = chore.Members
                 .Where(m => !m.IsAdmin)
                 .Take(2)
@@ -645,7 +645,7 @@ public class ChoreServiceTests
             Assert.True(await new ChoreService(context, CancellationToken.None)
                     .ExtendQueueAsync(chore.Id, TimeSpan.FromDays(1).Days));
             chore = await context.Chores.FirstAsync();
-            Assert.Equal(1, chore.QueueItems.Count);
+            Assert.Single(chore.QueueItems);
             Assert.True(await new ChoreService(context, CancellationToken.None)
                     .ExtendQueueAsync(chore.Id, TimeSpan.FromDays(1).Days));
             Assert.Equal(2, chore.QueueItems.Count);
@@ -664,11 +664,11 @@ public class ChoreServiceTests
         using (var context = new Context(options))
         {
             chore = await new DbTestChoreBuilder(context)
-                .WithOwner().GetAwaiter().GetResult()
+                .WithOwner()
                 .WithDuration(TimeSpan.FromDays(1))
-                .WithMember("member1").GetAwaiter().GetResult()
-                .WithMember("member2").GetAwaiter().GetResult()
-                .Build();
+                .WithMember("member1")
+                .WithMember("member2")
+                .BuildAsync();
             members = chore.Members
                 .Where(m => !m.IsAdmin)
                 .Take(2)

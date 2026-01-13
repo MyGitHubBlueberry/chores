@@ -24,13 +24,15 @@ public static class DbTestHelper
         return (connection, options);
     }
 
+    public static User CreateUser(string name) => new User
+    {
+        Username = name,
+        Password = [1],
+    };
+
     public static async Task<User> CreateAndAddUser(string name, Context db)
     {
-        User user = new User
-        {
-            Username = name,
-            Password = [1],
-        };
+        var user = CreateUser(name);
         await db.Users.AddAsync(user);
         await db.SaveChangesAsync();
         return user;

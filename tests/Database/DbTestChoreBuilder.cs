@@ -6,6 +6,7 @@ namespace Tests.Database;
 public class DbTestChoreBuilder(Context db)
 {
     Chore chore = new Chore();
+    List<(User, ChoreMember)> members = new();
 
     public DbTestChoreBuilder WithFill(string fill)
     {
@@ -21,40 +22,36 @@ public class DbTestChoreBuilder(Context db)
         return this;
     }
 
-    public async Task<DbTestChoreBuilder> WithOwner(string name = "owner", int? rotationOrder = null)
+    public DbTestChoreBuilder WithOwner(string name = "owner", int? rotationOrder = null)
     {
-        User user = await DbTestHelper.CreateAndAddUser(name, db);
+        User user = DbTestHelper.CreateUser(name);
         user.OwnedChores.Add(chore);
-        chore.Members.Add(new ChoreMember
+        members.Add((user, new ChoreMember
         {
-            UserId = user.Id,
             IsAdmin = true,
             RotationOrder = rotationOrder,
-        });
+        }));
+        
         return this;
     }
 
-    public async Task<DbTestChoreBuilder> WithAdmin(string name = "admin", int? rotationOrder = null)
+    public DbTestChoreBuilder WithAdmin(string name = "admin", int? rotationOrder = null)
     {
-        User user = await DbTestHelper.CreateAndAddUser(name, db);
-        chore.Members.Add(new ChoreMember
+        members.Add((DbTestHelper.CreateUser(name), new ChoreMember
         {
-            UserId = user.Id,
             IsAdmin = true,
             RotationOrder = rotationOrder,
-        });
+        }));
         return this;
     }
 
-    public async Task<DbTestChoreBuilder> WithMember(string name = "member", int? rotationOrder = null)
+    public DbTestChoreBuilder WithMember(string name = "member", int? rotationOrder = null)
     {
-        User user = await DbTestHelper.CreateAndAddUser(name, db);
-        chore.Members.Add(new ChoreMember
+        members.Add((DbTestHelper.CreateUser(name), new ChoreMember
         {
-            UserId = user.Id,
             IsAdmin = false,
             RotationOrder = rotationOrder,
-        });
+        }));
         return this;
     }
 
@@ -70,11 +67,17 @@ public class DbTestChoreBuilder(Context db)
         return this;
     }
 
-    public async Task<Chore> Build()
+    public async Task<Chore> BuildAsync(CancellationToken token = default)
     {
-        Assert.NotNull(chore.Title);
-        if (chore.Members.Count != 0)
-            await db.SaveChangesAsync();
+        if (members.Any()) {
+            await db.Users.AddRangeAsync(members.Select(m => m.Item1), token);
+            await db.SaveChangesAsync(token);
+            foreach (var pair in members) {
+                pair.Item2.UserId = pair.Item1.Id;
+                chore.Members.Add(pair.Item2);
+            }
+        }
+        await db.SaveChangesAsync(token);
         return chore;
     }
 }
