@@ -72,10 +72,16 @@ public class DbTestChoreBuilder(Context db)
         if (members.Any()) {
             await db.Users.AddRangeAsync(members.Select(m => m.Item1), token);
             await db.SaveChangesAsync(token);
-            foreach (var pair in members) {
-                pair.Item2.UserId = pair.Item1.Id;
-                chore.Members.Add(pair.Item2);
+            foreach (var (user, member) in members) {
+                member.UserId = user.Id;
+                chore.Members.Add(member);
             }
+
+            chore.CurrentQueueMemberIdx = members
+                .Select(pair => pair.Item2.RotationOrder)
+                .Where(o => o.HasValue)
+                .OrderBy(o => o)
+                .FirstOrDefault();
         }
         await db.SaveChangesAsync(token);
         return chore;

@@ -478,39 +478,22 @@ public class ChoreServiceTests
     {
         var (connection, options) = await DbTestHelper.SetupTestDbAsync();
 
-        Chore chore;
+        using var context = new Context(options);
+        Chore chore = await new DbTestChoreBuilder(context)
+            .WithOwner()
+            .WithDuration(TimeSpan.FromDays(1))
+            .WithInterval(TimeSpan.Zero)
+            .WithMember("member1", 0)
+            .WithMember("member2", 1)
+            .BuildAsync();
         int days = 3;
 
-        using (var context = new Context(options))
-        {
-            chore = await new DbTestChoreBuilder(context)
-                .WithOwner()
-                .WithDuration(TimeSpan.FromDays(1))
-                .WithInterval(TimeSpan.Zero)
-                .WithMember("member1")
-                .WithMember("member2")
-                .BuildAsync();
-            var members = chore.Members
-                .Where(m => !m.IsAdmin)
-                .Take(2)
-                .ToArray();
-            for (int i = 0; i < members.Length; i++)
-            {
-                members[i].RotationOrder = i;
-            }
-            chore.CurrentQueueMemberIdx = 0;
-            await context.SaveChangesAsync();
-        }
-
-        using (var context = new Context(options))
-        {
-            Assert.Empty(chore.QueueItems);
-            Assert.True(await new ChoreService(context, CancellationToken.None)
-                    .ExtendQueueAsync(chore.Id, days));
-            chore = await context.Chores.Include(ch => ch.Members).FirstAsync();
-            Assert.NotEmpty(chore.QueueItems);
-            Assert.Equal(days, chore.QueueItems.Count);
-        }
+        Assert.Empty(chore.QueueItems);
+        Assert.True(await new ChoreService(context, CancellationToken.None)
+                .ExtendQueueAsync(chore.Id, days));
+        chore = await context.Chores.Include(ch => ch.Members).FirstAsync();
+        Assert.NotEmpty(chore.QueueItems);
+        Assert.Equal(days, chore.QueueItems.Count);
     }
 
     [Fact]
@@ -519,52 +502,35 @@ public class ChoreServiceTests
     {
         var (connection, options) = await DbTestHelper.SetupTestDbAsync();
 
-        Chore chore;
+        using var context = new Context(options);
         int days = 5;
         TimeSpan duration = TimeSpan.FromHours(12);
         int expected = days * (TimeSpan.HoursPerDay / duration.Hours);
-
-        using (var context = new Context(options))
-        {
-            chore = await new DbTestChoreBuilder(context)
+        Chore chore = await new DbTestChoreBuilder(context)
                 .WithOwner()
                 .WithDuration(duration)
                 .WithInterval(TimeSpan.Zero)
-                .WithMember("member1")
-                .WithMember("member2")
+                .WithMember("member1", 0)
+                .WithMember("member2", 1)
                 .BuildAsync();
-            var members = chore.Members
-                .Where(m => !m.IsAdmin)
-                .Take(2)
-                .ToArray();
-            for (int i = 0; i < members.Length; i++)
-            {
-                members[i].RotationOrder = i;
-            }
-            chore.CurrentQueueMemberIdx = 0;
-            await context.SaveChangesAsync();
-        }
 
-        using (var context = new Context(options))
-        {
-            Assert.Empty(chore.QueueItems);
-            Assert.True(await new ChoreService(context, CancellationToken.None)
-                    .ExtendQueueAsync(chore.Id, days));
-            chore = await context.Chores.Include(ch => ch.Members).FirstAsync();
-            Assert.NotEmpty(chore.QueueItems);
-            Assert.Equal(expected, chore.QueueItems.Count);
-            var members = chore.Members
-                .Where(m => !m.IsAdmin)
-                .Take(2)
-                .ToArray();
-            var member1Count = chore.QueueItems
-                .Where(q => q.AssignedMemberId == members[0].UserId)
-                .Count();
-            var member2Count = chore.QueueItems
-                .Where(q => q.AssignedMemberId == members[1].UserId)
-                .Count();
-            Assert.Equal(member1Count, member2Count);
-        }
+        Assert.Empty(chore.QueueItems);
+        Assert.True(await new ChoreService(context, CancellationToken.None)
+                .ExtendQueueAsync(chore.Id, days));
+        chore = await context.Chores.Include(ch => ch.Members).FirstAsync();
+        Assert.NotEmpty(chore.QueueItems);
+        Assert.Equal(expected, chore.QueueItems.Count);
+        var members = chore.Members
+        .Where(m => !m.IsAdmin)
+        .Take(2)
+        .ToArray();
+        var member1Count = chore.QueueItems
+            .Where(q => q.AssignedMemberId == members[0].UserId)
+            .Count();
+        var member2Count = chore.QueueItems
+            .Where(q => q.AssignedMemberId == members[1].UserId)
+            .Count();
+        Assert.Equal(member1Count, member2Count);
     }
 
     [Fact]
@@ -573,42 +539,26 @@ public class ChoreServiceTests
     {
         var (connection, options) = await DbTestHelper.SetupTestDbAsync();
 
-        Chore chore;
         int days = 5;
         TimeSpan duration = TimeSpan.FromHours(12);
         TimeSpan interval = TimeSpan.FromHours(12);
         int expected = days * TimeSpan.HoursPerDay / (duration.Hours + interval.Hours);
 
-        using (var context = new Context(options))
-        {
-            chore = await new DbTestChoreBuilder(context)
-                .WithOwner()
-                .WithDuration(duration)
-                .WithInterval(interval)
-                .WithMember("member1")
-                .WithMember("member2")
-                .BuildAsync();
-            var members = chore.Members
-                .Where(m => !m.IsAdmin)
-                .Take(2)
-                .ToArray();
-            for (int i = 0; i < members.Length; i++)
-            {
-                members[i].RotationOrder = i;
-            }
-            chore.CurrentQueueMemberIdx = 0;
-            await context.SaveChangesAsync();
-        }
+        using var context = new Context(options);
+        Chore chore = await new DbTestChoreBuilder(context)
+            .WithOwner()
+            .WithDuration(duration)
+            .WithInterval(interval)
+            .WithMember("member1", 0)
+            .WithMember("member2", 1)
+            .BuildAsync();
 
-        using (var context = new Context(options))
-        {
-            Assert.Empty(chore.QueueItems);
-            Assert.True(await new ChoreService(context, CancellationToken.None)
-                    .ExtendQueueAsync(chore.Id, days));
-            chore = await context.Chores.Include(ch => ch.Members).FirstAsync();
-            Assert.NotEmpty(chore.QueueItems);
-            Assert.Equal(expected, chore.QueueItems.Count);
-        }
+        Assert.Empty(chore.QueueItems);
+        Assert.True(await new ChoreService(context, CancellationToken.None)
+                .ExtendQueueAsync(chore.Id, days));
+        chore = await context.Chores.Include(ch => ch.Members).FirstAsync();
+        Assert.NotEmpty(chore.QueueItems);
+        Assert.Equal(expected, chore.QueueItems.Count);
     }
 
     [Fact]
@@ -617,43 +567,95 @@ public class ChoreServiceTests
     {
         var (connection, options) = await DbTestHelper.SetupTestDbAsync();
 
-        Chore chore;
+        using var context = new Context(options);
+        Chore chore = await new DbTestChoreBuilder(context)
+            .WithOwner()
+            .WithDuration(TimeSpan.FromDays(1))
+            .WithMember("member1", 0)
+            .WithMember("member2", 1)
+            .WithMember("member3", 2)
+            .BuildAsync();
 
-        using (var context = new Context(options))
-        {
-            chore = await new DbTestChoreBuilder(context)
-                .WithOwner()
-                .WithDuration(TimeSpan.FromDays(1))
-                .WithMember("member1")
-                .WithMember("member2")
-                .BuildAsync();
-            var members = chore.Members
-                .Where(m => !m.IsAdmin)
-                .Take(2)
-                .ToArray();
-            for (int i = 0; i < members.Length; i++)
-            {
-                members[i].RotationOrder = i;
-            }
-            chore.CurrentQueueMemberIdx = 0;
-            await context.SaveChangesAsync();
-        }
-
-        using (var context = new Context(options))
-        {
-            Assert.Empty(chore.QueueItems);
-            Assert.True(await new ChoreService(context, CancellationToken.None)
-                    .ExtendQueueAsync(chore.Id, TimeSpan.FromDays(1).Days));
-            chore = await context.Chores.FirstAsync();
-            Assert.Single(chore.QueueItems);
-            Assert.True(await new ChoreService(context, CancellationToken.None)
-                    .ExtendQueueAsync(chore.Id, TimeSpan.FromDays(1).Days));
-            Assert.Equal(2, chore.QueueItems.Count);
-            var items = chore.QueueItems.Take(2).ToArray();
-            Assert.NotEqual(items[0].AssignedMemberId, items[1].AssignedMemberId);
-            Assert.NotEqual(items[0].ScheduledDate, items[1].ScheduledDate);
-        }
+        Assert.Empty(chore.QueueItems);
+        Assert.True(await new ChoreService(context, CancellationToken.None)
+                .ExtendQueueAsync(chore.Id, TimeSpan.FromDays(1).Days));
+        chore = await context.Chores.FirstAsync();
+        Assert.Single(chore.QueueItems);
+        var firstUserUsername = context.Users
+            .First(u => u.Id == chore.QueueItems.First().AssignedMemberId).Username;
+        Assert.Equal("member1", firstUserUsername);
+        Assert.True(await new ChoreService(context, CancellationToken.None)
+                .ExtendQueueAsync(chore.Id, TimeSpan.FromDays(1).Days));
+        Assert.Equal(2, chore.QueueItems.Count);
+        var items = chore.QueueItems.Take(2).ToArray();
+        Assert.NotEqual(items[0].AssignedMemberId, items[1].AssignedMemberId);
+        Assert.NotEqual(items[0].ScheduledDate, items[1].ScheduledDate);
     }
+
+    [Theory]
+    [InlineData(0, 1)]
+    [InlineData(1, 4)]
+    public async Task SwapQueueItems_Cant_Swap_Nonexisting_Entries
+        (int queueItemAId, int queueItemBId)
+    {
+        var (connection, options) = await DbTestHelper.SetupTestDbAsync();
+        using var context = new Context(options);
+
+        Chore chore = await new DbTestChoreBuilder(context)
+            .WithOwner()
+            .BuildAsync();
+        Assert.False(await new ChoreService(context, CancellationToken.None)
+                .SwapQueueItemsAsync(chore.Id, chore.OwnerId, queueItemAId, queueItemBId));
+    }
+
+    // [Fact]
+    // public async Task SwapQueueItems_Swaps_Dates()
+    // {
+    //     var (connection, options) = await DbTestHelper.SetupTestDbAsync();
+    //     using var context = new Context(options);
+    //     string user1 = "user1";
+    //     string user2 = "user2";
+    //
+    //     Chore chore = await new DbTestChoreBuilder(context)
+    //             .WithOwner()
+    //             .WithDuration(TimeSpan.FromDays(1))
+    //             .WithMember(user1, 0)
+    //             .WithMember(user2, 1)
+    //             .BuildAsync();
+    //     var service = new ChoreService(context, CancellationToken.None);
+    //
+    //     Assert.True(await service.ExtendQueueAsync(chore.Id, 2));
+    //     // chore = await context.Chores.Include(ch => ch.QueueItems).FirstAsync();
+    //     Assert.True(chore.QueueItems.Count == 2);
+    //     var users = context.Users.ToArray();
+    //     var orderedUsers = users
+    //         .Join(chore.QueueItems, 
+    //                 user => user.Id,
+    //                 q => q.AssignedMemberId, 
+    //                 (user, queue) => new { Name = user.Username, Date = queue.ScheduledDate})
+    //         .OrderBy(x => x.Date)
+    //         .Take(2)
+    //         .Select(x => x.Name)
+    //         .ToArray();
+    //     Assert.Equal(user1, orderedUsers[0]);
+    //     Assert.Equal(user2, orderedUsers[1]);
+    //
+    //     Assert.True(await service
+    //             .SwapQueueItemsAsync(chore.Id, chore.OwnerId, 0, 1));
+    //
+    //     // chore = await context.Chores.Include(ch => ch.QueueItems).FirstAsync();
+    //     orderedUsers = users
+    //         .Join(chore.QueueItems, 
+    //                 user => user.Id,
+    //                 q => q.AssignedMemberId, 
+    //                 (user, queue) => new { Name = user.Username, Date = queue.ScheduledDate})
+    //         .OrderBy(x => x.Date)
+    //         .Take(2)
+    //         .Select(x => x.Name)
+    //         .ToArray();
+    //     Assert.Equal(user1, orderedUsers[1]);
+    //     Assert.Equal(user2, orderedUsers[0]);
+    // }
 
     [Fact]
     public async Task SwapMembersInQueue_Swaps_Only_RotationOrder_If_Queue_Is_Empty()
@@ -685,9 +687,9 @@ public class ChoreServiceTests
         {
             Assert.Empty(chore.QueueItems);
             Assert.Equal(members.Length, chore.Members
-                .Where(m => m.RotationOrder.HasValue).Count());
+                    .Where(m => m.RotationOrder.HasValue).Count());
             Assert.True(await new ChoreService(context, CancellationToken.None)
-                .SwapMembersInQueueAsync
+                    .SwapMembersInQueueAsync
                     (chore.OwnerId, chore.Id, members[0].UserId, members[1].UserId));
         }
 
@@ -700,9 +702,9 @@ public class ChoreServiceTests
                 .OrderBy(m => m.RotationOrder)
                 .ToArray();
             Assert.Equal(membersAfterSwap.Length, members.Length);
-            Assert.True(membersAfterSwap[0].UserId != members[0].UserId 
+            Assert.True(membersAfterSwap[0].UserId != members[0].UserId
                     || membersAfterSwap[0].RotationOrder != members[0].RotationOrder);
-            Assert.True(membersAfterSwap[1].UserId != members[1].UserId 
+            Assert.True(membersAfterSwap[1].UserId != members[1].UserId
                     || membersAfterSwap[1].RotationOrder != members[1].RotationOrder);
         }
     }
