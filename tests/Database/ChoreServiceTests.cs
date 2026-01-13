@@ -608,54 +608,52 @@ public class ChoreServiceTests
                 .SwapQueueItemsAsync(chore.Id, chore.OwnerId, queueItemAId, queueItemBId));
     }
 
-    // [Fact]
-    // public async Task SwapQueueItems_Swaps_Dates()
-    // {
-    //     var (connection, options) = await DbTestHelper.SetupTestDbAsync();
-    //     using var context = new Context(options);
-    //     string user1 = "user1";
-    //     string user2 = "user2";
-    //
-    //     Chore chore = await new DbTestChoreBuilder(context)
-    //             .WithOwner()
-    //             .WithDuration(TimeSpan.FromDays(1))
-    //             .WithMember(user1, 0)
-    //             .WithMember(user2, 1)
-    //             .BuildAsync();
-    //     var service = new ChoreService(context, CancellationToken.None);
-    //
-    //     Assert.True(await service.ExtendQueueAsync(chore.Id, 2));
-    //     // chore = await context.Chores.Include(ch => ch.QueueItems).FirstAsync();
-    //     Assert.True(chore.QueueItems.Count == 2);
-    //     var users = context.Users.ToArray();
-    //     var orderedUsers = users
-    //         .Join(chore.QueueItems, 
-    //                 user => user.Id,
-    //                 q => q.AssignedMemberId, 
-    //                 (user, queue) => new { Name = user.Username, Date = queue.ScheduledDate})
-    //         .OrderBy(x => x.Date)
-    //         .Take(2)
-    //         .Select(x => x.Name)
-    //         .ToArray();
-    //     Assert.Equal(user1, orderedUsers[0]);
-    //     Assert.Equal(user2, orderedUsers[1]);
-    //
-    //     Assert.True(await service
-    //             .SwapQueueItemsAsync(chore.Id, chore.OwnerId, 0, 1));
-    //
-    //     // chore = await context.Chores.Include(ch => ch.QueueItems).FirstAsync();
-    //     orderedUsers = users
-    //         .Join(chore.QueueItems, 
-    //                 user => user.Id,
-    //                 q => q.AssignedMemberId, 
-    //                 (user, queue) => new { Name = user.Username, Date = queue.ScheduledDate})
-    //         .OrderBy(x => x.Date)
-    //         .Take(2)
-    //         .Select(x => x.Name)
-    //         .ToArray();
-    //     Assert.Equal(user1, orderedUsers[1]);
-    //     Assert.Equal(user2, orderedUsers[0]);
-    // }
+    [Fact]
+    public async Task SwapQueueItems_Swaps_Dates()
+    {
+        var (connection, options) = await DbTestHelper.SetupTestDbAsync();
+        using var context = new Context(options);
+        string user1 = "user1";
+        string user2 = "user2";
+
+        Chore chore = await new DbTestChoreBuilder(context)
+                .WithOwner()
+                .WithDuration(TimeSpan.FromDays(1))
+                .WithMember(user1, 0)
+                .WithMember(user2, 1)
+                .BuildAsync();
+        var service = new ChoreService(context, CancellationToken.None);
+
+        Assert.True(await service.ExtendQueueAsync(chore.Id, 2));
+        Assert.True(chore.QueueItems.Count == 2);
+        var users = context.Users.ToArray();
+        var orderedUsers = users
+            .Join(chore.QueueItems, 
+                    user => user.Id,
+                    q => q.AssignedMemberId, 
+                    (user, queue) => new { Name = user.Username, Date = queue.ScheduledDate})
+            .OrderBy(x => x.Date)
+            .Take(2)
+            .Select(x => x.Name)
+            .ToArray();
+
+        Assert.Equal(user1, orderedUsers[0]);
+        Assert.Equal(user2, orderedUsers[1]);
+        var queueItemIds = chore.QueueItems.Take(2).Select(q => q.Id).ToArray();
+        Assert.True(await service
+                .SwapQueueItemsAsync(chore.Id, chore.OwnerId, queueItemIds[0], queueItemIds[1]));
+        orderedUsers = users
+            .Join(chore.QueueItems, 
+                    user => user.Id,
+                    q => q.AssignedMemberId, 
+                    (user, queue) => new { Name = user.Username, Date = queue.ScheduledDate})
+            .OrderBy(x => x.Date)
+            .Take(2)
+            .Select(x => x.Name)
+            .ToArray();
+        Assert.Equal(user1, orderedUsers[1]);
+        Assert.Equal(user2, orderedUsers[0]);
+    }
 
     [Fact]
     public async Task SwapMembersInQueue_Swaps_Only_RotationOrder_If_Queue_Is_Empty()
