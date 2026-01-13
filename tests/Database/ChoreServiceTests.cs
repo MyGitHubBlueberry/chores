@@ -474,7 +474,7 @@ public class ChoreServiceTests
     }
 
     [Fact]
-    public async Task ExtendQueue_Generates_Right_Amount_Of_Days()
+    public async Task ExtendQueue_Generates_Right_Amount_Of_Chores_Per_Day()
     {
         var (connection, options) = await DbTestHelper.SetupTestDbAsync();
 
@@ -510,6 +510,148 @@ public class ChoreServiceTests
             chore = await context.Chores.Include(ch => ch.Members).FirstAsync();
             Assert.NotEmpty(chore.QueueItems);
             Assert.Equal(days, chore.QueueItems.Count);
+        }
+    }
+
+    [Fact]
+    public async Task 
+        ExtendQueue_Generates_Correct_QueueItem_Amount_And_Distributes_Them_Evenly()
+    {
+        var (connection, options) = await DbTestHelper.SetupTestDbAsync();
+
+        Chore chore;
+        int days = 5;
+        TimeSpan duration = TimeSpan.FromHours(12);
+        int expected = days * (TimeSpan.HoursPerDay / duration.Hours);
+
+        using (var context = new Context(options))
+        {
+            chore = await new DbTestChoreBuilder(context)
+                .WithOwner().GetAwaiter().GetResult()
+                .WithDuration(duration)
+                .WithInterval(TimeSpan.Zero)
+                .WithMember("member1").GetAwaiter().GetResult()
+                .WithMember("member2").GetAwaiter().GetResult()
+                .Build();
+            var members = chore.Members
+                .Where(m => !m.IsAdmin)
+                .Take(2)
+                .ToArray();
+            for (int i = 0; i < members.Length; i++)
+            {
+                members[i].RotationOrder = i;
+            }
+            chore.CurrentQueueMemberIdx = 0;
+            await context.SaveChangesAsync();
+        }
+
+        using (var context = new Context(options))
+        {
+            Assert.Empty(chore.QueueItems);
+            Assert.True(await new ChoreService(context, CancellationToken.None)
+                    .ExtendQueueAsync(chore.Id, days));
+            chore = await context.Chores.Include(ch => ch.Members).FirstAsync();
+            Assert.NotEmpty(chore.QueueItems);
+            Assert.Equal(expected, chore.QueueItems.Count);
+            var members = chore.Members
+                .Where(m => !m.IsAdmin)
+                .Take(2)
+                .ToArray();
+            var member1Count = chore.QueueItems
+                .Where(q => q.AssignedMemberId == members[0].UserId)
+                .Count();
+            var member2Count = chore.QueueItems
+                .Where(q => q.AssignedMemberId == members[1].UserId)
+                .Count();
+            Assert.Equal(member1Count, member2Count);
+        }
+    }
+
+    [Fact]
+    public async Task 
+        ExtendQueue_Accounts_For_Interval()
+    {
+        var (connection, options) = await DbTestHelper.SetupTestDbAsync();
+
+        Chore chore;
+        int days = 5;
+        TimeSpan duration = TimeSpan.FromHours(12);
+        TimeSpan interval = TimeSpan.FromHours(12);
+        int expected = days * TimeSpan.HoursPerDay / (duration.Hours + interval.Hours);
+
+        using (var context = new Context(options))
+        {
+            chore = await new DbTestChoreBuilder(context)
+                .WithOwner().GetAwaiter().GetResult()
+                .WithDuration(duration)
+                .WithInterval(interval)
+                .WithMember("member1").GetAwaiter().GetResult()
+                .WithMember("member2").GetAwaiter().GetResult()
+                .Build();
+            var members = chore.Members
+                .Where(m => !m.IsAdmin)
+                .Take(2)
+                .ToArray();
+            for (int i = 0; i < members.Length; i++)
+            {
+                members[i].RotationOrder = i;
+            }
+            chore.CurrentQueueMemberIdx = 0;
+            await context.SaveChangesAsync();
+        }
+
+        using (var context = new Context(options))
+        {
+            Assert.Empty(chore.QueueItems);
+            Assert.True(await new ChoreService(context, CancellationToken.None)
+                    .ExtendQueueAsync(chore.Id, days));
+            chore = await context.Chores.Include(ch => ch.Members).FirstAsync();
+            Assert.NotEmpty(chore.QueueItems);
+            Assert.Equal(expected, chore.QueueItems.Count);
+        }
+    }
+
+    [Fact]
+    public async Task 
+        ExtendQueue_Preserves_Queue_And_Order_When_Called_Twise()
+    {
+        var (connection, options) = await DbTestHelper.SetupTestDbAsync();
+
+        Chore chore;
+
+        using (var context = new Context(options))
+        {
+            chore = await new DbTestChoreBuilder(context)
+                .WithOwner().GetAwaiter().GetResult()
+                .WithDuration(TimeSpan.FromDays(1))
+                .WithMember("member1").GetAwaiter().GetResult()
+                .WithMember("member2").GetAwaiter().GetResult()
+                .Build();
+            var members = chore.Members
+                .Where(m => !m.IsAdmin)
+                .Take(2)
+                .ToArray();
+            for (int i = 0; i < members.Length; i++)
+            {
+                members[i].RotationOrder = i;
+            }
+            chore.CurrentQueueMemberIdx = 0;
+            await context.SaveChangesAsync();
+        }
+
+        using (var context = new Context(options))
+        {
+            Assert.Empty(chore.QueueItems);
+            Assert.True(await new ChoreService(context, CancellationToken.None)
+                    .ExtendQueueAsync(chore.Id, TimeSpan.FromDays(1).Days));
+            chore = await context.Chores.FirstAsync();
+            Assert.Equal(1, chore.QueueItems.Count);
+            Assert.True(await new ChoreService(context, CancellationToken.None)
+                    .ExtendQueueAsync(chore.Id, TimeSpan.FromDays(1).Days));
+            Assert.Equal(2, chore.QueueItems.Count);
+            var items = chore.QueueItems.Take(2).ToArray();
+            Assert.NotEqual(items[0].AssignedMemberId, items[1].AssignedMemberId);
+            Assert.NotEqual(items[0].ScheduledDate, items[1].ScheduledDate);
         }
     }
 }

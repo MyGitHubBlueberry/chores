@@ -388,8 +388,9 @@ public class ChoreService(Context db, CancellationToken token)
             .Select(m => m.UserId)
             .ToArray();
         int memberCount = membersIdsFromRotaionOrder.Length;
-        DateTime date = chore.QueueItems.LastOrDefault()?.ScheduledDate
-            ?? (chore.StartDate < DateTime.UtcNow
+        DateTime date = chore.QueueItems.Any() 
+            ? chore.QueueItems.First().ScheduledDate + chore.Duration + chore.Interval
+            : (chore.StartDate < DateTime.UtcNow
                 ? DateTime.UtcNow
                 : chore.StartDate);
 
