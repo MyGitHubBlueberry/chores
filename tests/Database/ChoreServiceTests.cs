@@ -628,10 +628,10 @@ public class ChoreServiceTests
         Assert.True(chore.QueueItems.Count == 2);
         var users = context.Users.ToArray();
         var orderedUsers = users
-            .Join(chore.QueueItems, 
+            .Join(chore.QueueItems,
                     user => user.Id,
-                    q => q.AssignedMemberId, 
-                    (user, queue) => new { Name = user.Username, Date = queue.ScheduledDate})
+                    q => q.AssignedMemberId,
+                    (user, queue) => new { Name = user.Username, Date = queue.ScheduledDate })
             .OrderBy(x => x.Date)
             .Take(2)
             .Select(x => x.Name)
@@ -643,10 +643,10 @@ public class ChoreServiceTests
         Assert.True(await service
                 .SwapQueueItemsAsync(chore.Id, chore.OwnerId, queueItemIds[0], queueItemIds[1]));
         orderedUsers = users
-            .Join(chore.QueueItems, 
+            .Join(chore.QueueItems,
                     user => user.Id,
-                    q => q.AssignedMemberId, 
-                    (user, queue) => new { Name = user.Username, Date = queue.ScheduledDate})
+                    q => q.AssignedMemberId,
+                    (user, queue) => new { Name = user.Username, Date = queue.ScheduledDate })
             .OrderBy(x => x.Date)
             .Take(2)
             .Select(x => x.Name)
@@ -724,25 +724,46 @@ public class ChoreServiceTests
         var users = context.Users.ToArray();
         Assert.True(await service.ExtendQueueAsync(chore.Id, 4));
         var orderedNames = chore.QueueItems
-            .Join(users, 
+            .Join(users,
                     q => q.AssignedMemberId,
                     u => u.Id,
                     (q, u) => new { Username = u.Username, Date = q.ScheduledDate })
             .OrderBy(entry => entry.Date)
             .Select(entry => entry.Username)
             .ToArray();
-        Assert.Equivalent(new string[]{ member1, member2, member1, member2 }, orderedNames);
+        Assert.Equivalent(new string[] { member1, member2, member1, member2 }, orderedNames);
         var queueItemIds = chore.QueueItems.Take(2).Select(q => q.Id).ToArray();
         Assert.True(await service
                 .SwapQueueItemsAsync(chore.Id, chore.OwnerId, queueItemIds[0], queueItemIds[1]));
         orderedNames = chore.QueueItems
-            .Join(users, 
+            .Join(users,
                     q => q.AssignedMemberId,
                     u => u.Id,
                     (q, u) => new { Username = u.Username, Date = q.ScheduledDate })
             .OrderBy(entry => entry.Date)
             .Select(entry => entry.Username)
             .ToArray();
-        Assert.Equivalent(new string[]{ member2, member1, member2, member1 }, orderedNames);
+        Assert.Equivalent(new string[] { member2, member1, member2, member1 }, orderedNames);
+    }
+
+    [Fact]
+    public async Task InsertQueueEntry_Can_Insert_In_Empty_Queue()
+    {
+        var (connection, options) = await DbTestHelper.SetupTestDbAsync();
+        using var context = new Context(options);
+        var service = new ChoreService(context, CancellationToken.None);
+        var chore = await new DbTestChoreBuilder(context)
+            .WithOwner()
+            .WithDuration(TimeSpan.FromDays(1))
+            .BuildAsync();
+        Assert.Empty(chore.QueueItems);
+        Assert.True(await service.InsertQueueEntryAsync(chore.Id, chore.OwnerId,
+                new ChoreQueue
+                {
+                    AssignedMemberId = chore.OwnerId,
+                    ScheduledDate = DateTime.UtcNow
+                }));
+        Assert.Single(chore.QueueItems);
+        Assert.Equal(chore.OwnerId, chore.QueueItems.First().AssignedMemberId);
     }
 }
