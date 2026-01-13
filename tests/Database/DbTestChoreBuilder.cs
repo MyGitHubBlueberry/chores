@@ -21,7 +21,7 @@ public class DbTestChoreBuilder(Context db)
         return this;
     }
 
-    public async Task<DbTestChoreBuilder> WithOwner(string name = "owner")
+    public async Task<DbTestChoreBuilder> WithOwner(string name = "owner", int? rotationOrder = null)
     {
         User user = await DbTestHelper.CreateAndAddUser(name, db);
         user.OwnedChores.Add(chore);
@@ -29,28 +29,31 @@ public class DbTestChoreBuilder(Context db)
         {
             UserId = user.Id,
             IsAdmin = true,
+            RotationOrder = rotationOrder,
         });
         return this;
     }
 
-    public async Task<DbTestChoreBuilder> WithAdmin(string name = "admin")
+    public async Task<DbTestChoreBuilder> WithAdmin(string name = "admin", int? rotationOrder = null)
     {
         User user = await DbTestHelper.CreateAndAddUser(name, db);
         chore.Members.Add(new ChoreMember
         {
             UserId = user.Id,
             IsAdmin = true,
+            RotationOrder = rotationOrder,
         });
         return this;
     }
 
-    public async Task<DbTestChoreBuilder> WithMember(string name = "member")
+    public async Task<DbTestChoreBuilder> WithMember(string name = "member", int? rotationOrder = null)
     {
         User user = await DbTestHelper.CreateAndAddUser(name, db);
         chore.Members.Add(new ChoreMember
         {
             UserId = user.Id,
             IsAdmin = false,
+            RotationOrder = rotationOrder,
         });
         return this;
     }

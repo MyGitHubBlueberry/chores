@@ -461,11 +461,9 @@ public class ChoreService(Context db, CancellationToken token)
                 .Where(q => exUserAQueueItemIdx.Contains(q.Id))
                 .ToList()
                 .ForEach(q => q.AssignedMemberId = b.UserId);
-            await db.SaveChangesAsync(token);
         }
-        a.RotationOrder ^= b.RotationOrder;
-        b.RotationOrder ^= a.RotationOrder;
-        a.RotationOrder ^= b.RotationOrder;
+        (a.RotationOrder, b.RotationOrder) = (b.RotationOrder, a.RotationOrder);
+        await db.SaveChangesAsync(token);
         return true;
     }
 
