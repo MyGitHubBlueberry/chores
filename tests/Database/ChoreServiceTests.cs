@@ -535,6 +535,30 @@ public class ChoreServiceTests
 
     [Fact]
     public async Task
+        ExtendQueue_Includes_Chore_Without_Interval_At_The_End()
+    {
+        var (connection, options) = await DbTestHelper.SetupTestDbAsync();
+
+        TimeSpan duration = TimeSpan.FromDays(1);
+        TimeSpan interval = TimeSpan.FromHours(12);
+        int days = 4;
+
+        using var context = new Context(options);
+        Chore chore = await new DbTestChoreBuilder(context)
+            .WithOwner()
+            .WithDuration(duration)
+            .WithInterval(interval)
+            .WithMember("member1", 0)
+            .WithMember("member2", 1)
+            .BuildAsync();
+
+        Assert.True(await new ChoreService(context, CancellationToken.None)
+                .ExtendQueueAsync(chore.Id, days));
+        Assert.Equal(3, chore.QueueItems.Count);
+    }
+
+    [Fact]
+    public async Task
         ExtendQueue_Accounts_For_Interval()
     {
         var (connection, options) = await DbTestHelper.SetupTestDbAsync();
@@ -861,12 +885,42 @@ public class ChoreServiceTests
         Assert.True(await service.ExtendQueueAsync(chore.Id, days));
         var member2Entries = chore.QueueItems
             .Where(i => users
-                .Where(u => u.Id == i.AssignedMemberId 
+                .Where(u => u.Id == i.AssignedMemberId
                     && u.Username == "member2").Any());
         Assert.Single(member2Entries);
         Assert.True(await service
             .DeleteQueueEntryAsync(chore.Id, chore.OwnerId, member2Entries.First()));
         chore = await context.Chores.FirstAsync();
         Assert.Empty(member2Entries);
+    }
+
+    [Fact]
+    public async Task DeleteQueueEntry_Preserves_Interval()
+    {
+        var (connection, options) = await DbTestHelper.SetupTestDbAsync();
+        using var context = new Context(options);
+        var service = new ChoreService(context, CancellationToken.None);
+        var chore = await new DbTestChoreBuilder(context)
+            .WithOwner()
+            .WithMember("member1", 0)
+            .WithMember("member2", 1)
+            .WithDuration(TimeSpan.FromDays(1))
+            .WithInterval(TimeSpan.FromHours(12))
+            .BuildAsync();
+        var users = context.Users.Select(u => new { u.Username, u.Id });
+        var days = 4;
+        Assert.True(await service.ExtendQueueAsync(chore.Id, days));
+        Assert.Equal(3, chore.QueueItems.Count);
+        Assert.True(await service
+            .DeleteQueueEntryAsync(chore.Id, chore.OwnerId,
+                chore.QueueItems
+                .OrderBy(i => i.ScheduledDate)
+                .Skip(1)
+                .First()));
+        chore = await context.Chores.FirstAsync();
+        Assert.Equal(2, chore.QueueItems.Count);
+        var timeBetweenChores = chore.Duration + chore.Interval;
+        var dates = chore.QueueItems.Select(i => i.ScheduledDate).ToArray();
+        Assert.Equal(timeBetweenChores, (dates[0] - dates[1]).Duration());
     }
 }

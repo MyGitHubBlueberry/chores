@@ -389,21 +389,23 @@ public class ChoreService(Context db, CancellationToken token)
             .Select(m => m.UserId)
             .ToArray();
         int memberCount = membersIdsFromRotaionOrder.Length;
-        DateTime date = chore.QueueItems.Any() 
-            ? chore.QueueItems.First().ScheduledDate + chore.Duration + chore.Interval
+        DateTime date = chore.QueueItems.Any()
+            ? chore.QueueItems.OrderBy(i => i.ScheduledDate)
+                .Last().ScheduledDate + chore.Duration + chore.Interval
             : (chore.StartDate < DateTime.UtcNow
                 ? DateTime.UtcNow
                 : chore.StartDate);
 
         TimeSpan durationToCover = TimeSpan.FromDays(days);
+        //todo: fix interval causes chore to be dismissed at the end
         int totalItems = int
-            .Max(1, (int)(durationToCover / (chore.Duration + chore.Interval)));
+            .Max(1, (int)((durationToCover - chore.Duration) / (chore.Duration + chore.Interval) + 1));
         var queueItems = new ChoreQueue[totalItems];
         for (int i = 0; i < queueItems.Length; i++)
         {
             queueItems[i] = new ChoreQueue
             {
-                AssignedMemberId = 
+                AssignedMemberId =
                     membersIdsFromRotaionOrder
                         [(newQueueMemberRotationOrderIdx + i) % memberCount],
                 ScheduledDate = date
@@ -546,7 +548,7 @@ public class ChoreService(Context db, CancellationToken token)
         desiredOrderRotationIdx = Math
             .Clamp(desiredOrderRotationIdx, 0, rotationMemberCount);
         chore.Members
-            .Where(m => m.RotationOrder.HasValue 
+            .Where(m => m.RotationOrder.HasValue
                 && m.RotationOrder >= desiredOrderRotationIdx)
             .ToList()
             .ForEach(m => m.RotationOrder++);
@@ -565,7 +567,7 @@ public class ChoreService(Context db, CancellationToken token)
         DateTime date = orderedQueue
             .Skip(desiredOrderRotationIdx - 1)
             .First().ScheduledDate;
-        var itemsToAdd = 
+        var itemsToAdd =
             new List<ChoreQueue>(orderedQueue.Count() / rotationMemberCount);
 
         foreach (ChoreQueue[] chunk in orderedQueue
@@ -685,7 +687,7 @@ public class ChoreService(Context db, CancellationToken token)
         using var transaction = await db.Database.BeginTransactionAsync(token);
         chore.QueueItems.Clear();
         await db.SaveChangesAsync(token);
-        if (!await ExtendQueueAsync(choreId, 
+        if (!await ExtendQueueAsync(choreId,
                     DateTime.DaysInMonth(DateTime.UtcNow.Year, DateTime.UtcNow.Month)))
             return false;
         await transaction.CommitAsync(token);
