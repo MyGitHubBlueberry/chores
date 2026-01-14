@@ -992,4 +992,82 @@ public class ChoreServiceTests
             prev = curr;
         }
     }
+
+
+    [Fact]
+    public async Task RegenerateQueue_Generates_Queue_When_Empty()
+    {
+        var (connection, options) = await DbTestHelper.SetupTestDbAsync();
+        using var context = new Context(options);
+        var service = new ChoreService(context, CancellationToken.None);
+        var chore = await new DbTestChoreBuilder(context)
+            .WithOwner()
+            .WithMember("member1", 0)
+            .WithMember("member2", 1)
+            .WithDuration(TimeSpan.FromDays(1))
+            .WithInterval(TimeSpan.FromHours(12))
+            .BuildAsync();
+
+        Assert.True(await service.RegenerateQueueAsync(chore.Id, chore.OwnerId));
+        Assert.NotEmpty(chore.QueueItems);
+    }
+
+    [Fact]
+    public async Task RegenerateQueue_Does_Nothing_When_No_Members()
+    {
+        var (connection, options) = await DbTestHelper.SetupTestDbAsync();
+        using var context = new Context(options);
+        var service = new ChoreService(context, CancellationToken.None);
+        var chore = await new DbTestChoreBuilder(context)
+            .WithOwner()
+            .BuildAsync();
+
+        Assert.False(await service.RegenerateQueueAsync(chore.Id, chore.OwnerId));
+        Assert.Empty(chore.QueueItems);
+    }
+
+    //todo: add tests for regenerate queue after
+    // swaps, interval change, deletions, insertions
+    [Fact]
+    public async Task RegenerateQueue_Regenerates_Changed_Queue()
+    {
+        var (connection, options) = await DbTestHelper.SetupTestDbAsync();
+        using var context = new Context(options);
+        var service = new ChoreService(context, CancellationToken.None);
+        var chore = await new DbTestChoreBuilder(context)
+            .WithOwner()
+            .WithMember("memeber1", 0)
+            .WithMember("memeber2", 1)
+            .WithMember("memeber3", 2)
+            .WithDuration(TimeSpan.FromDays(1))
+            .WithInterval(TimeSpan.FromDays(0))
+            .BuildAsync();
+        Assert.True(await service.ExtendQueueAsync(chore.Id, 10));
+        var initialQueueItems = chore.QueueItems.OrderBy(i => i.ScheduledDate).ToArray();
+        Assert.True(await service.SwapQueueItemsAsync(chore.Id,
+                    chore.OwnerId,
+                    chore.QueueItems.First().Id,
+                    chore.QueueItems.Skip(1).First().Id));
+        Assert.True(await service.DeleteQueueEntryAsync(chore.Id,
+                    chore.OwnerId,
+                    chore.QueueItems.Last()));
+        Assert.True(await service.InsertQueueEntryAsync(chore.Id,
+                    chore.OwnerId,
+                    new ChoreQueue 
+                    {
+                        AssignedMemberId = chore.Members
+                            .Where(m => m.RotationOrder.HasValue)
+                            .Last().UserId,
+                        ScheduledDate = chore.StartDate + chore.Interval,
+                    }));
+        Assert.NotEqual(initialQueueItems, chore.QueueItems.OrderBy(i => i.ScheduledDate));
+        Assert.True(await service.RegenerateQueueAsync(chore.Id, chore.OwnerId, initialQueueItems.Count()));
+        Assert.Equal(initialQueueItems
+                    .Select(i => i.AssignedMemberId),
+                chore.QueueItems
+                    .OrderBy(i => i.ScheduledDate)
+                    .Take(initialQueueItems.Count())
+                    .Select(i => i.AssignedMemberId));
+        Assert.Equal(initialQueueItems.Count(), chore.QueueItems.Count);
+    }
 }

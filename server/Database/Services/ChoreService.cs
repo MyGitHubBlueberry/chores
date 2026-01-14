@@ -671,7 +671,7 @@ public class ChoreService(Context db, CancellationToken token)
     }
 
     // discard queue changes (should remove swaps, insertions, inconsistent duration and interval times) maybe regen will be better, honestly
-    public async Task<bool> RegenerateQueueAsync(int choreId, int userId)
+    public async Task<bool> RegenerateQueueAsync(int choreId, int userId, int? daysToRegenerarate = null)
     {
         var chore = await db.Chores
             .Include(ch => ch.QueueItems)
@@ -682,8 +682,12 @@ public class ChoreService(Context db, CancellationToken token)
         using var transaction = await db.Database.BeginTransactionAsync(token);
         chore.QueueItems.Clear();
         await db.SaveChangesAsync(token);
+        daysToRegenerarate = daysToRegenerarate is null 
+            ? DateTime.DaysInMonth(DateTime.UtcNow.Year, DateTime.UtcNow.Month)
+            : daysToRegenerarate;
         if (!await ExtendQueueAsync(choreId,
-                    DateTime.DaysInMonth(DateTime.UtcNow.Year, DateTime.UtcNow.Month)))
+                    daysToRegenerarate.Value
+                    ))
             return false;
         await transaction.CommitAsync(token);
         return true;
