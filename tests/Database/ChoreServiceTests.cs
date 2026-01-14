@@ -922,7 +922,39 @@ public class ChoreServiceTests
                 .First()));
         chore = await context.Chores.FirstAsync();
         Assert.Equal(2, chore.QueueItems.Count);
-        dates = chore.QueueItems.Select(i => i.ScheduledDate).OrderBy(d => d).ToArray();
+        dates = chore.QueueItems.Select(i => i.ScheduledDate).ToArray();
         Assert.Equal(timeBetweenChores, (dates[0] - dates[1]).Duration());
+    }
+
+    [Fact]
+    public async Task DeleteMemberFromQueue_Deletes_Member()
+    {
+        var (connection, options) = await DbTestHelper.SetupTestDbAsync();
+        using var context = new Context(options);
+        var service = new ChoreService(context, CancellationToken.None);
+        var userToBeRemovedUsername = "member2";
+        var chore = await new DbTestChoreBuilder(context)
+            .WithOwner()
+            .WithMember("member1", 0)
+            .WithMember(userToBeRemovedUsername, 1)
+            .WithDuration(TimeSpan.FromDays(1))
+            .WithInterval(TimeSpan.FromHours(12))
+            .BuildAsync();
+        var users = context.Users.Select(u => new { u.Username, u.Id });
+        var userToBeRemoved = users.Where(u => u.Username == userToBeRemovedUsername).First();
+        var days = 5;
+        Assert.True(await service.ExtendQueueAsync(chore.Id, days));
+        var userToBeRemovedExists = chore.QueueItems
+            .Where(i => i.AssignedMemberId == userToBeRemoved.Id);
+        var usersWithDates = users.Join(chore.QueueItems,
+                user => user.Id,
+                item => item.AssignedMemberId,
+                (user, item) => new { Username = user.Username, Date = item.ScheduledDate });
+        Assert.True(userToBeRemovedExists.Any());
+        Assert.True(
+                await service.DeleteMemberFromQueueAsync(chore.Id,
+                    chore.OwnerId,
+                    userToBeRemoved.Id));
+        Assert.False(userToBeRemovedExists.Any());
     }
 }
