@@ -606,18 +606,13 @@ public class ChoreService(Context db, CancellationToken token)
                     && entry.ScheduledDate == q.ScheduledDate)) return false;
 
         var afterItems = chore.QueueItems
-                .Where(q => q.ScheduledDate > entry.ScheduledDate)
-                .OrderBy(q => q.ScheduledDate);
+                .Where(q => q.ScheduledDate > entry.ScheduledDate);
         if (afterItems.Any())
         {
-            TimeSpan interval = entry.ScheduledDate
-                + chore.Duration + chore.Interval - afterItems.First().ScheduledDate;
-            if (interval > TimeSpan.Zero)
+            TimeSpan interval = afterItems.First().ScheduledDate - entry.ScheduledDate;
+            foreach (var item in afterItems)
             {
-                foreach (var item in afterItems)
-                {
-                    item.ScheduledDate -= interval;
-                }
+                item.ScheduledDate -= interval;
             }
         }
         chore.QueueItems.Remove(chore.QueueItems.First(q =>

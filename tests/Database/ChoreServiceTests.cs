@@ -911,6 +911,9 @@ public class ChoreServiceTests
         var days = 4;
         Assert.True(await service.ExtendQueueAsync(chore.Id, days));
         Assert.Equal(3, chore.QueueItems.Count);
+        var timeBetweenChores = chore.Duration + chore.Interval;
+        var dates = chore.QueueItems.Select(i => i.ScheduledDate).OrderBy(d => d).Take(2).ToArray();
+        Assert.Equal(timeBetweenChores, (dates[0] - dates[1]).Duration());
         Assert.True(await service
             .DeleteQueueEntryAsync(chore.Id, chore.OwnerId,
                 chore.QueueItems
@@ -919,8 +922,7 @@ public class ChoreServiceTests
                 .First()));
         chore = await context.Chores.FirstAsync();
         Assert.Equal(2, chore.QueueItems.Count);
-        var timeBetweenChores = chore.Duration + chore.Interval;
-        var dates = chore.QueueItems.Select(i => i.ScheduledDate).ToArray();
+        dates = chore.QueueItems.Select(i => i.ScheduledDate).OrderBy(d => d).ToArray();
         Assert.Equal(timeBetweenChores, (dates[0] - dates[1]).Duration());
     }
 }
