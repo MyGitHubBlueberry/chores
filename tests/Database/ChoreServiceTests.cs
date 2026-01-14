@@ -957,4 +957,39 @@ public class ChoreServiceTests
                     userToBeRemoved.Id));
         Assert.False(userToBeRemovedExists.Any());
     }
+
+    [Fact]
+    public async Task DeleteMemberFromQueue_Preserves_Intervals()
+    {
+        var (connection, options) = await DbTestHelper.SetupTestDbAsync();
+        using var context = new Context(options);
+        var service = new ChoreService(context, CancellationToken.None);
+        var duration = TimeSpan.FromDays(1);
+        var interval = TimeSpan.FromHours(12);
+        var choreOffset = duration + interval;
+        var chore = await new DbTestChoreBuilder(context)
+            .WithOwner()
+            .WithMember("member1", 0)
+            .WithMember("member2", 1)
+            .WithDuration(duration)
+            .WithInterval(interval)
+            .BuildAsync();
+        var users = context.Users.Select(u => new { u.Username, u.Id });
+        var days = 10;
+        Assert.True(await service.ExtendQueueAsync(chore.Id, days));
+        Assert.True(
+                await service.DeleteMemberFromQueueAsync(chore.Id,
+                    chore.OwnerId,
+                    chore.Members.First(u => u.RotationOrder.HasValue).UserId));
+
+        var orderedQueueItemDates = chore.QueueItems
+            .Select(i => i.ScheduledDate)
+            .OrderBy(d => d);
+        var prev = orderedQueueItemDates.First();
+        foreach(var curr in orderedQueueItemDates.Skip(1))
+        {
+            Assert.Equal(choreOffset, curr - prev);
+            prev = curr;
+        }
+    }
 }
