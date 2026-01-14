@@ -10,6 +10,7 @@ using Shared.Networking.Packets;
 
 namespace Database.Services;
 
+//todo: add method to change intervals
 //todo: maybe move duration and interval to queue items?
 //todo: don't allow for setting starting date in past ???
 //todo: when chore is paused, keep first queueItems starting date at utcnow (maybe add background worker to add day to every queue entry when paused)

@@ -766,4 +766,107 @@ public class ChoreServiceTests
         Assert.Single(chore.QueueItems);
         Assert.Equal(chore.OwnerId, chore.QueueItems.First().AssignedMemberId);
     }
+
+    [Fact]
+    public async Task InsertQueueEntry_Can_Insert_In_Between_Queue_Entires()
+    {
+        var (connection, options) = await DbTestHelper.SetupTestDbAsync();
+        using var context = new Context(options);
+        var service = new ChoreService(context, CancellationToken.None);
+        var chore = await new DbTestChoreBuilder(context)
+            .WithOwner()
+            .WithMember("member1", 0)
+            .WithMember("member2", 1)
+            .WithMember("member3")
+            .WithDuration(TimeSpan.FromDays(1))
+            .BuildAsync();
+        var newMemberId = chore.Members.Where(m =>
+                !m.RotationOrder.HasValue
+                && m.UserId != chore.OwnerId).First().UserId;
+        Assert.Empty(chore.QueueItems);
+        Assert.True(await service.ExtendQueueAsync(chore.Id, 2));
+        Assert.NotEmpty(chore.QueueItems);
+        var newMemberScheduledDate = chore.QueueItems
+            .Select(i => i.ScheduledDate)
+            .OrderBy(d => d)
+            .First();
+        var queueItem = new ChoreQueue
+        {
+            AssignedMemberId = newMemberId,
+            ScheduledDate = newMemberScheduledDate,
+        };
+        await service.InsertQueueEntryAsync(chore.Id, chore.OwnerId, queueItem);
+        Assert.Contains(queueItem, chore.QueueItems);
+        var users = context.Users.Select(u => new { u.Username, u.Id });
+        var orderedNames = chore.QueueItems
+            .Join(users,
+                    q => q.AssignedMemberId,
+                    u => u.Id,
+                    (q, u) => new { Username = u.Username, Date = q.ScheduledDate })
+            .OrderBy(entry => entry.Date)
+            .Select(entry => entry.Username)
+            .ToArray();
+        Assert.Equivalent(new string[] { "member3", "member1", "member2" }, orderedNames);
+    }
+
+    [Fact]
+    public async Task InsertQueueMember_Inserts_ChoreMember_In_Queue()
+    {
+        var (connection, options) = await DbTestHelper.SetupTestDbAsync();
+        using var context = new Context(options);
+        var service = new ChoreService(context, CancellationToken.None);
+        var chore = await new DbTestChoreBuilder(context)
+            .WithOwner()
+            .WithMember("member1", 0)
+            .WithMember("member2", 1)
+            .WithMember("member3")
+            .WithDuration(TimeSpan.FromDays(1))
+            .BuildAsync();
+        var users = context.Users.Select(u => new { u.Username, u.Id });
+        var days = 4;
+        var lastRotationPosition = chore.Members.Where(m => m.RotationOrder.HasValue).Count();
+        Assert.True(await service.ExtendQueueAsync(chore.Id, days));
+        Assert.True(await service.InsertMemberInQueueAsync(chore.Id,
+                    chore.OwnerId,
+                    users.First(u => u.Username == "member3").Id,
+                    lastRotationPosition));
+        var orderedNames = chore.QueueItems
+            .Join(users,
+                    q => q.AssignedMemberId,
+                    u => u.Id,
+                    (q, u) => new { Username = u.Username, Date = q.ScheduledDate })
+            .OrderBy(entry => entry.Date)
+            .Select(entry => entry.Username)
+            .ToArray();
+
+        Assert.Equivalent(
+                new string[] { "member1", "member2", "member3", "member1", "member2", "member3" },
+                orderedNames);
+    }
+
+    [Fact]
+    public async Task DeleteQueueEntry_Removes_Entry()
+    {
+        var (connection, options) = await DbTestHelper.SetupTestDbAsync();
+        using var context = new Context(options);
+        var service = new ChoreService(context, CancellationToken.None);
+        var chore = await new DbTestChoreBuilder(context)
+            .WithOwner()
+            .WithMember("member1", 0)
+            .WithMember("member2", 1)
+            .WithDuration(TimeSpan.FromDays(1))
+            .BuildAsync();
+        var users = context.Users.Select(u => new { u.Username, u.Id });
+        var days = 2;
+        Assert.True(await service.ExtendQueueAsync(chore.Id, days));
+        var member2Entries = chore.QueueItems
+            .Where(i => users
+                .Where(u => u.Id == i.AssignedMemberId 
+                    && u.Username == "member2").Any());
+        Assert.Single(member2Entries);
+        Assert.True(await service
+            .DeleteQueueEntryAsync(chore.Id, chore.OwnerId, member2Entries.First()));
+        chore = await context.Chores.FirstAsync();
+        Assert.Empty(member2Entries);
+    }
 }
