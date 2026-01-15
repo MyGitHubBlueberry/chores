@@ -66,58 +66,22 @@ public class ChoreService(Context db, CancellationToken token)
         return Result<Chore>.Success(chore);
     }
 
-    private Result ChangeChoreScheduleIfValid(Chore chore, CreateChoreRequest request)
-        => ChangeChoreScheduleIfValid(chore, new Schedule(request));
-    private Result ChangeChoreScheduleIfValid(Chore chore, UpdateChoreScheduleRequest request)
-        => ChangeChoreScheduleIfValid(chore, new Schedule(request));
-    private Result ChangeChoreScheduleIfValid(Chore chore, Schedule schedule)
+    public async Task<Result> DeleteChoreAsync(int userId, int choreId)
     {
-        if (schedule.StartDate.HasValue)
-        {
-            if (DateTime.UtcNow.Date > schedule.StartDate.Value.Date)
-            {
-                return Result
-                    .Fail(ServiceError.InvalidInput, "Start date can't be in the past");
-            }
-        }
-
-        if (schedule.EndDate.HasValue)
-        {
-            if (DateTime.UtcNow.Date > schedule.EndDate.Value.Date)
-            {
-                return Result
-                    .Fail(ServiceError.InvalidInput, "End date can't be in the past");
-            }
-
-            if (schedule.EndDate <= (schedule.StartDate.HasValue
-                        ? schedule.StartDate
-                        : chore.StartDate))
-            {
-                return Result
-                    .Fail(ServiceError.InvalidInput, "End date can't be before start date");
-            }
-        }
-
-        if (schedule.Duration.HasValue)
-        {
-            if (schedule.Duration == TimeSpan.Zero)
-            {
-                return Result
-                    .Fail(ServiceError.InvalidInput, "Duration can't be zero");
-            }
-        }
-        chore.StartDate = schedule.StartDate ?? chore.StartDate;
-        chore.EndDate = schedule.EndDate ?? chore.EndDate;
-        chore.Duration = schedule.Duration ?? chore.Duration;
-        chore.Interval = schedule.Interval ?? chore.Interval;
-        return Result.Success();
-    }
-
-    public async Task<bool> DeleteChoreAsync(int userId, int choreId) =>
-        await db.Chores
+        var chore = await db.Chores.FindAsync(choreId);
+        if (chore is null)
+            return Result.NotFound("Chore not found");
+        if (!await db.Users.AnyAsync(u => u.Id == userId))
+            return Result.NotFound("User not found");
+        if (EnsureSufficientPrivileges(Privileges.Owner, chore, userId))
+            return Result.Forbidden();
+        return await db.Chores
             .Where(ch => ch.Id == choreId)
             .Where(ch => ch.OwnerId == userId)
-            .ExecuteDeleteAsync(token) != 0;
+            .ExecuteDeleteAsync(token) != 0
+                ? Result.Success()
+                : Result.Fail(ServiceError.DatabaseError, "Could not delete chore");  //should never happen
+    }
 
     public async Task<bool> UpdateDetailsAsync
         (int userId, UpdateChoreDetailsRequest request) =>
@@ -772,6 +736,53 @@ public class ChoreService(Context db, CancellationToken token)
         Owner,
         Admin,
         Member,
+    }
+
+    private Result ChangeChoreScheduleIfValid(Chore chore, CreateChoreRequest request)
+        => ChangeChoreScheduleIfValid(chore, new Schedule(request));
+    private Result ChangeChoreScheduleIfValid(Chore chore, UpdateChoreScheduleRequest request)
+        => ChangeChoreScheduleIfValid(chore, new Schedule(request));
+    private Result ChangeChoreScheduleIfValid(Chore chore, Schedule schedule)
+    {
+        if (schedule.StartDate.HasValue)
+        {
+            if (DateTime.UtcNow.Date > schedule.StartDate.Value.Date)
+            {
+                return Result
+                    .Fail(ServiceError.InvalidInput, "Start date can't be in the past");
+            }
+        }
+
+        if (schedule.EndDate.HasValue)
+        {
+            if (DateTime.UtcNow.Date > schedule.EndDate.Value.Date)
+            {
+                return Result
+                    .Fail(ServiceError.InvalidInput, "End date can't be in the past");
+            }
+
+            if (schedule.EndDate <= (schedule.StartDate.HasValue
+                        ? schedule.StartDate
+                        : chore.StartDate))
+            {
+                return Result
+                    .Fail(ServiceError.InvalidInput, "End date can't be before start date");
+            }
+        }
+
+        if (schedule.Duration.HasValue)
+        {
+            if (schedule.Duration == TimeSpan.Zero)
+            {
+                return Result
+                    .Fail(ServiceError.InvalidInput, "Duration can't be zero");
+            }
+        }
+        chore.StartDate = schedule.StartDate ?? chore.StartDate;
+        chore.EndDate = schedule.EndDate ?? chore.EndDate;
+        chore.Duration = schedule.Duration ?? chore.Duration;
+        chore.Interval = schedule.Interval ?? chore.Interval;
+        return Result.Success();
     }
 
     private record Schedule
