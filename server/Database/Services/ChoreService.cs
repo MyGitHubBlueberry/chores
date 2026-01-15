@@ -682,7 +682,7 @@ public class ChoreService(Context db, CancellationToken token)
         using var transaction = await db.Database.BeginTransactionAsync(token);
         chore.QueueItems.Clear();
         await db.SaveChangesAsync(token);
-        daysToRegenerarate = daysToRegenerarate is null 
+        daysToRegenerarate = daysToRegenerarate is null
             ? DateTime.DaysInMonth(DateTime.UtcNow.Year, DateTime.UtcNow.Month)
             : daysToRegenerarate;
         if (!await ExtendQueueAsync(choreId,
@@ -692,6 +692,22 @@ public class ChoreService(Context db, CancellationToken token)
         await transaction.CommitAsync(token);
         return true;
     }
-
     #endregion
+
+    private bool EnsureSuffitientPrivileges
+        (Privileges privilege, Chore chore, User user) => privilege switch
+        {
+            Privileges.Owner => chore.OwnerId == user.Id,
+            Privileges.Admin => chore.Members.Any(m => m.UserId == user.Id
+                    && m.IsAdmin),
+            Privileges.Member => chore.Members.Any(m => m.UserId == user.Id),
+            _ => false,
+        };
+
+    enum Privileges
+    {
+        Owner,
+        Admin,
+        Member,
+    }
 }
