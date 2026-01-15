@@ -2,6 +2,7 @@ using Database;
 using Database.Services;
 using Microsoft.EntityFrameworkCore;
 using Shared.Database.Models;
+using Shared.Networking;
 using Shared.Networking.Packets;
 
 namespace Tests.Database;
@@ -24,8 +25,9 @@ public class ChoreServiceTests
         using (var context = new Context(options))
         {
             var service = new ChoreService(context, CancellationToken.None);
-            var chore = await service.CreateChoreAsync(userId, choreRequest);
-            Assert.Null(chore);
+            var result = await service.CreateChoreAsync(userId, choreRequest);
+            Assert.False(result.IsSuccess);
+            Assert.Equal(ServiceError.NotFound, result.Error);
         }
         using (var context = new Context(options))
         {
@@ -37,35 +39,33 @@ public class ChoreServiceTests
     public async Task CreateChore_Saves_In_Db()
     {
         var (connection, options) = await DbTestHelper.SetupTestDbAsync();
-        int userId;
+        using var context = new Context(options);
+        User user = await DbTestHelper.CreateAndAddUser("user", context);
 
-        using (var context = new Context(options))
-        {
-            var user = new User
-            {
-                Username = "Test",
-                Password = [1],
-            };
-            await context.Users.AddAsync(user);
-            await context.SaveChangesAsync();
-            userId = user.Id;
-        }
+        var service = new ChoreService(context, CancellationToken.None);
+        var choreResult = await service.CreateChoreAsync(user.Id, choreRequest);
+        Assert.True(choreResult.IsSuccess);
+        Assert.NotNull(choreResult.Value);
+        Assert.Equal(user.Id, choreResult.Value.OwnerId);
+        Assert.Equal(choreRequest.Title, choreResult.Value.Title);
+        Assert.Equal(choreRequest.Body, choreResult.Value.Body);
+        Assert.NotEmpty(choreResult.Value.Members);
+    }
 
-        using (var context = new Context(options))
-        {
-            var service = new ChoreService(context, CancellationToken.None);
-            var chore = await service.CreateChoreAsync(userId, choreRequest);
-            Assert.NotNull(chore);
-            Assert.Equal(userId, chore.OwnerId);
-            Assert.Equal(choreRequest.Title, chore.Title);
-            Assert.Equal(choreRequest.Body, chore.Body);
-            Assert.NotEmpty(chore.Members);
-        }
+    [Fact]
+    public async Task CreateChore_Cant_Create_Two_Same_Chores()
+    {
+        var (connection, options) = await DbTestHelper.SetupTestDbAsync();
+        using var context = new Context(options);
+        User user = await DbTestHelper.CreateAndAddUser("user", context);
 
-        using (var context = new Context(options))
-        {
-            Assert.NotEmpty(context.Chores);
-        }
+        var service = new ChoreService(context, CancellationToken.None);
+        var choreResult = await service.CreateChoreAsync(user.Id, choreRequest);
+        Assert.True(choreResult.IsSuccess);
+        choreResult = await service.CreateChoreAsync(user.Id, choreRequest);
+        Assert.False(choreResult.IsSuccess);
+        Assert.Null(choreResult.Value);
+        Assert.Equal(ServiceError.Conflict, choreResult.Error);
     }
 
     [Fact]
@@ -986,7 +986,7 @@ public class ChoreServiceTests
             .Select(i => i.ScheduledDate)
             .OrderBy(d => d);
         var prev = orderedQueueItemDates.First();
-        foreach(var curr in orderedQueueItemDates.Skip(1))
+        foreach (var curr in orderedQueueItemDates.Skip(1))
         {
             Assert.Equal(choreOffset, curr - prev);
             prev = curr;
@@ -1053,7 +1053,7 @@ public class ChoreServiceTests
                     chore.QueueItems.Last()));
         Assert.True(await service.InsertQueueEntryAsync(chore.Id,
                     chore.OwnerId,
-                    new ChoreQueue 
+                    new ChoreQueue
                     {
                         AssignedMemberId = chore.Members
                             .Where(m => m.RotationOrder.HasValue)

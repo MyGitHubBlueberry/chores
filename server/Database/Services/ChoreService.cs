@@ -6,10 +6,12 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Shared.Database.Models;
+using Shared.Networking;
 using Shared.Networking.Packets;
 
 namespace Database.Services;
 
+//todo: add end date to chore? and make it nullable
 //todo: add method to change intervals
 //todo: maybe move duration and interval to queue items?
 //todo: don't allow for setting starting date in past ???
@@ -22,12 +24,14 @@ namespace Database.Services;
 public class ChoreService(Context db, CancellationToken token)
 {
     #region Core chore management
-    public async Task<Chore?> CreateChoreAsync
+    public async Task<Result<Chore>> CreateChoreAsync
         (int ownerId, CreateChoreRequest request)
     {
         if (!await db.Users.AnyAsync(u => u.Id == ownerId, token))
-            return null;
-
+            return Result<Chore>.NotFound("User not found");
+        if (await db.Chores.AnyAsync(ch => ch.Title == request.Title 
+                    && ch.OwnerId == ownerId))
+            return Result<Chore>.Fail(ServiceError.Conflict,"Chore already exists");
         var chore = new Chore
         {
             OwnerId = ownerId,
@@ -47,8 +51,17 @@ public class ChoreService(Context db, CancellationToken token)
         });
 
         await db.Chores.AddAsync(chore, token);
-        await db.SaveChangesAsync(token);  //TODO: handle throws
-        return chore;
+
+        try
+        {
+            await db.SaveChangesAsync(token);
+        }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            return Result<Chore>.Fail(ServiceError.DatabaseError, e.Message);
+        }
+
+        return Result<Chore>.Success(chore);
     }
 
     public async Task<bool> DeleteChoreAsync(int userId, int choreId) =>
@@ -694,13 +707,13 @@ public class ChoreService(Context db, CancellationToken token)
     }
     #endregion
 
-    private bool EnsureSuffitientPrivileges
-        (Privileges privilege, Chore chore, User user) => privilege switch
+    private bool EnsureSufficientPrivileges
+        (Privileges privilege, Chore chore, int userId) => privilege switch
         {
-            Privileges.Owner => chore.OwnerId == user.Id,
-            Privileges.Admin => chore.Members.Any(m => m.UserId == user.Id
+            Privileges.Owner => chore.OwnerId == userId,
+            Privileges.Admin => chore.Members.Any(m => m.UserId == userId
                     && m.IsAdmin),
-            Privileges.Member => chore.Members.Any(m => m.UserId == user.Id),
+            Privileges.Member => chore.Members.Any(m => m.UserId == userId),
             _ => false,
         };
 
