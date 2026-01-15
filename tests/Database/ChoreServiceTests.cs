@@ -135,8 +135,10 @@ public class ChoreServiceTests
         {
             Assert.NotEmpty(context.Chores);
 
-            Assert.False(await new ChoreService(context, CancellationToken.None)
-                    .DeleteChoreAsync(notMember.Id, chore.Id));
+            var result = await new ChoreService(context, CancellationToken.None)
+                    .DeleteChoreAsync(notMember.Id, chore.Id);
+            Assert.False(result.IsSuccess);
+            Assert.Equal(ServiceError.Forbidden, result.Error);
 
             Assert.NotEmpty(context.Chores);
         }
@@ -153,8 +155,9 @@ public class ChoreServiceTests
         using var context = new Context(options);
         Assert.NotEmpty(context.Chores);
 
-        Assert.True(await new ChoreService(context, CancellationToken.None)
-                .DeleteChoreAsync(chore.OwnerId, chore.Id));
+        var result = await new ChoreService(context, CancellationToken.None)
+                .DeleteChoreAsync(chore.OwnerId, chore.Id);
+        Assert.True(result.IsSuccess);
 
         Assert.Empty(context.Chores);
     }
@@ -177,7 +180,9 @@ public class ChoreServiceTests
 
         Assert.NotEmpty(context.Chores);
         var service = new ChoreService(context, CancellationToken.None);
-        Assert.False(await service.DeleteChoreAsync(adminId, chore.Id));
+        var result = await service.DeleteChoreAsync(adminId, chore.Id);
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ServiceError.Forbidden, result.Error);
         Assert.NotEmpty(context.Chores);
     }
 
@@ -196,8 +201,10 @@ public class ChoreServiceTests
 
         using var context = new Context(options);
         Assert.NotEmpty(context.Chores);
-        Assert.False(await new ChoreService(context, CancellationToken.None)
-                .DeleteChoreAsync(userId, chore.Id));
+        var result = await new ChoreService(context, CancellationToken.None)
+                .DeleteChoreAsync(userId, chore.Id);
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ServiceError.Forbidden, result.Error);
         Assert.NotEmpty(context.Chores);
     }
 

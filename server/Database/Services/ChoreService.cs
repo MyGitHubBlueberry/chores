@@ -73,7 +73,7 @@ public class ChoreService(Context db, CancellationToken token)
             return Result.NotFound("Chore not found");
         if (!await db.Users.AnyAsync(u => u.Id == userId))
             return Result.NotFound("User not found");
-        if (EnsureSufficientPrivileges(Privileges.Owner, chore, userId))
+        if (!EnsureSufficientPrivileges(Privileges.Owner, chore, userId))
             return Result.Forbidden();
         return await db.Chores
             .Where(ch => ch.Id == choreId)
@@ -334,7 +334,7 @@ public class ChoreService(Context db, CancellationToken token)
 
         if (isOwner && isSelf)
         {
-            return await DeleteChoreAsync(choreId, requesterId);
+            return (await DeleteChoreAsync(choreId, requesterId)).IsSuccess;
         }
 
         if (targetMember.RotationOrder.HasValue)
