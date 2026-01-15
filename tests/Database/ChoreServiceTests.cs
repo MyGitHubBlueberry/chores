@@ -209,6 +209,23 @@ public class ChoreServiceTests
     }
 
     [Fact]
+    public async Task UpdateDetails_Cant_Update_To_Duplicate_Chore()
+    {
+        var (connection, options) = await DbTestHelper.SetupTestDbAsync();
+        Chore chore = await new DbTestChoreBuilder(new Context(options))
+                .WithOwner()
+                .BuildAsync();
+        using var context = new Context(options);
+        var request = new UpdateChoreDetailsRequest(chore.Id, "new");
+
+        Assert.True((await new ChoreService(context, CancellationToken.None)
+            .UpdateDetailsAsync(chore.OwnerId, request)).IsSuccess);
+        Result result = await new ChoreService(context, CancellationToken.None)
+            .UpdateDetailsAsync(chore.OwnerId, request);
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ServiceError.Conflict, result.Error);
+    }
+    [Fact]
     public async Task UpdateDetails_Updates_Details()
     {
         var (connection, options) = await DbTestHelper.SetupTestDbAsync();
