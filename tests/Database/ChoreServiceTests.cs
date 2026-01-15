@@ -226,7 +226,7 @@ public class ChoreServiceTests
                 .WithMember()
                 .BuildAsync();
         var request = new UpdateChoreScheduleRequest(chore.Id,
-                StartDate: DateTime.Parse("2005-12-12"),
+                EndDate: DateTime.Parse("2005-12-12"),
                 Interval: TimeSpan.FromDays(3),
                 Duration: TimeSpan.FromDays(3));
         int userId = chore.Members
@@ -235,12 +235,12 @@ public class ChoreServiceTests
             .First();
         using var context = new Context(options);
 
-        Assert.NotEqual(request.StartDate, chore.StartDate);
+        Assert.NotEqual(request.EndDate, chore.StartDate);
         Assert.NotEqual(request.Interval, chore.Interval);
         Assert.NotEqual(request.Duration, chore.Duration);
         Assert.False(await new ChoreService(context, CancellationToken.None)
                 .UpdateScheduleAsync(userId, request));
-        Assert.NotEqual(request.StartDate, chore.StartDate);
+        Assert.NotEqual(request.EndDate, chore.StartDate);
         Assert.NotEqual(request.Interval, chore.Interval);
         Assert.NotEqual(request.Duration, chore.Duration);
     }
@@ -254,18 +254,18 @@ public class ChoreServiceTests
                 .WithMember()
                 .BuildAsync();
         var request = new UpdateChoreScheduleRequest(chore.Id,
-                StartDate: DateTime.Parse("2005-12-12"),
+                EndDate: DateTime.Parse("2005-12-12"),
                 Interval: TimeSpan.FromDays(3),
                 Duration: TimeSpan.FromDays(3));
         using var context = new Context(options);
 
-        Assert.NotEqual(request.StartDate, chore.StartDate);
+        Assert.NotEqual(request.EndDate, chore.EndDate);
         Assert.NotEqual(request.Interval, chore.Interval);
         Assert.NotEqual(request.Duration, chore.Duration);
         Assert.True(await new ChoreService(context, CancellationToken.None)
                 .UpdateScheduleAsync(chore.OwnerId, request));
         chore = await context.Chores.FirstAsync();
-        Assert.Equal(request.StartDate, chore.StartDate);
+        Assert.Equal(request.EndDate, chore.EndDate);
         Assert.Equal(request.Interval, chore.Interval);
         Assert.Equal(request.Duration, chore.Duration);
     }

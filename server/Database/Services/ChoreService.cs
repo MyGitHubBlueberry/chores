@@ -29,9 +29,9 @@ public class ChoreService(Context db, CancellationToken token)
     {
         if (!await db.Users.AnyAsync(u => u.Id == ownerId, token))
             return Result<Chore>.NotFound("User not found");
-        if (await db.Chores.AnyAsync(ch => ch.Title == request.Title 
+        if (await db.Chores.AnyAsync(ch => ch.Title == request.Title
                     && ch.OwnerId == ownerId))
-            return Result<Chore>.Fail(ServiceError.Conflict,"Chore already exists");
+            return Result<Chore>.Fail(ServiceError.Conflict, "Chore already exists");
         var chore = new Chore
         {
             OwnerId = ownerId,
@@ -40,9 +40,11 @@ public class ChoreService(Context db, CancellationToken token)
             AvatarUrl = request.AvatarUrl, //todo: save in server
         };
 
-        chore.StartDate = request.StartDate ?? chore.StartDate;
-        chore.Interval = request.Interval ?? chore.Interval;
-        chore.Duration = request.Duration ?? chore.Duration;
+        var result = ChangeChoreScheduleIfValid(chore, request);
+        if (!result.IsSuccess){
+            return Result<Chore>
+                .Fail(result.Error, result.ErrorMessage ?? "Error in chore schedule");
+        }
 
         chore.Members.Add(new ChoreMember
         {
@@ -64,6 +66,53 @@ public class ChoreService(Context db, CancellationToken token)
         return Result<Chore>.Success(chore);
     }
 
+    private Result ChangeChoreScheduleIfValid(Chore chore, CreateChoreRequest request)
+        => ChangeChoreScheduleIfValid(chore, new Schedule(request));
+    private Result ChangeChoreScheduleIfValid(Chore chore, UpdateChoreScheduleRequest request)
+        => ChangeChoreScheduleIfValid(chore, new Schedule(request));
+    private Result ChangeChoreScheduleIfValid(Chore chore, Schedule schedule)
+    {
+        if (schedule.StartDate.HasValue)
+        {
+            if (DateTime.UtcNow.Date > schedule.StartDate.Value.Date)
+            {
+                return Result
+                    .Fail(ServiceError.InvalidInput, "Start date can't be in the past");
+            }
+        }
+
+        if (schedule.EndDate.HasValue)
+        {
+            if (DateTime.UtcNow.Date > schedule.EndDate.Value.Date)
+            {
+                return Result
+                    .Fail(ServiceError.InvalidInput, "End date can't be in the past");
+            }
+
+            if (schedule.EndDate <= (schedule.StartDate.HasValue
+                        ? schedule.StartDate
+                        : chore.StartDate))
+            {
+                return Result
+                    .Fail(ServiceError.InvalidInput, "End date can't be before start date");
+            }
+        }
+
+        if (schedule.Duration.HasValue)
+        {
+            if (schedule.Duration == TimeSpan.Zero)
+            {
+                return Result
+                    .Fail(ServiceError.InvalidInput, "Duration can't be zero");
+            }
+        }
+        chore.StartDate = schedule.StartDate ?? chore.StartDate;
+        chore.EndDate = schedule.EndDate ?? chore.EndDate;
+        chore.Duration = schedule.Duration ?? chore.Duration;
+        chore.Interval = schedule.Interval ?? chore.Interval;
+        return Result.Success();
+    }
+
     public async Task<bool> DeleteChoreAsync(int userId, int choreId) =>
         await db.Chores
             .Where(ch => ch.Id == choreId)
@@ -82,13 +131,14 @@ public class ChoreService(Context db, CancellationToken token)
             token) != 0;
 
     //TODO: should regen chore queue if any members participate in chore
+    //TODO: add verification
     public async Task<bool> UpdateScheduleAsync
         (int userId, UpdateChoreScheduleRequest request) =>
         await db.Chores
             .Where(c => c.Id == request.ChoreId &&
                     (c.OwnerId == userId || c.Members.Any(m => m.UserId == userId && m.IsAdmin)))
             .ExecuteUpdateAsync(setters => setters
-                .SetProperty(c => c.StartDate, c => request.StartDate == null ? c.StartDate : request.StartDate)
+                .SetProperty(c => c.EndDate, c => request.EndDate == null ? c.EndDate : request.EndDate)
                 .SetProperty(c => c.Interval, c => request.Interval == null ? c.Interval : request.Interval)
                 .SetProperty(c => c.Duration, c => request.Duration == null ? c.Duration : request.Duration),
             token) != 0;
@@ -722,5 +772,36 @@ public class ChoreService(Context db, CancellationToken token)
         Owner,
         Admin,
         Member,
+    }
+
+    private record Schedule
+    {
+        public DateTime? EndDate = null;
+        public DateTime? StartDate = null;
+        public TimeSpan? Duration = null;
+        public TimeSpan? Interval = null;
+
+        public Schedule(CreateChoreRequest request)
+        {
+            EndDate = request.EndDate;
+            StartDate = request.StartDate;
+            Duration = request.Duration;
+            Interval = request.Interval;
+        }
+
+        public Schedule(UpdateChoreScheduleRequest request)
+        {
+            EndDate = request.EndDate;
+            Duration = request.Duration;
+            Interval = request.Interval;
+        }
+
+        public Schedule(Chore chore)
+        {
+            EndDate = chore.EndDate;
+            StartDate = chore.StartDate;
+            Duration = chore.Duration;
+            Interval = chore.Interval;
+        }
     }
 }

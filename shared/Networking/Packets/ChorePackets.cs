@@ -5,6 +5,7 @@ public record CreateChoreRequest(
     string? Body = null,
     string? AvatarUrl = null,
     DateTime? StartDate = null,
+    DateTime? EndDate = null,
     TimeSpan? Duration = null,
     TimeSpan? Interval = null
 );
@@ -18,7 +19,7 @@ public record UpdateChoreDetailsRequest(
 
 public record UpdateChoreScheduleRequest(
     int ChoreId,
-    DateTime? StartDate = null,
+    DateTime? EndDate = null,
     TimeSpan? Duration = null,
     TimeSpan? Interval = null
 );
