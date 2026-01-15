@@ -227,6 +227,20 @@ public class UserServiceTests
 
     //todo: add test that tries to delete another user
     [Fact]
+    public async Task DeleteUser_Cant_Deletes_Not_Self()
+    {
+        var (connection, options) = await DbTestHelper.SetupTestDbAsync();
+        using var context = new Context(options);
+        User user1 = await DbTestHelper.CreateAndAddUser("user1", context);
+        User user2 = await DbTestHelper.CreateAndAddUser("user2", context);
+        var service = new UserService(context, CancellationToken.None);
+        var result = await service.DeleteUserAsync(user1.Id, user2.Id);
+        Console.WriteLine($"user1.Id: {user1.Id} user2.Id: {user2.Id}");
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ServiceError.Forbidden, result.Error);
+    }
+
+    [Fact]
     public async Task DeleteUser_Deletes_User()
     {
         var (connection, options) = await DbTestHelper.SetupTestDbAsync();
