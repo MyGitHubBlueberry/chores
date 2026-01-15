@@ -1,10 +1,13 @@
+namespace Shared.Networking;
+
 public enum ServiceError
 {
     None,
     NotFound,
     Forbidden,
     InvalidInput,
-    DatabaseError
+    DatabaseError,
+    Conflict
 }
 
 public class Result
@@ -20,10 +23,14 @@ public class Result
         ErrorMessage = errorMessage;
     }
 
-    public static Result Success() => new(true, ServiceError.None, null);
-    public static Result Fail(ServiceError error, string message) => new(false, error, message);
-    public static Result NotFound(string message = "Entity not found") => Fail(ServiceError.NotFound, message);
-    public static Result Forbidden(string message = "Insuffitient privileges") => Fail(ServiceError.Forbidden, message);
+    public static Result Success() 
+        => new(true, ServiceError.None, null);
+    public static Result Fail(ServiceError error, string message) 
+        => new(false, error, message);
+    public static Result NotFound(string message = "Entity not found") 
+        => Fail(ServiceError.NotFound, message);
+    public static Result Forbidden(string message = "Insuffitient privileges") 
+        => Fail(ServiceError.Forbidden, message);
 }
 
 public class Result<T> : Result

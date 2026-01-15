@@ -2,6 +2,7 @@ using Database;
 using Database.Services;
 using Microsoft.EntityFrameworkCore;
 using Shared.Database.Models;
+using Shared.Networking;
 
 namespace Tests.Database;
 
@@ -20,10 +21,11 @@ public class UserServiceTests
             {
                 var service = new UserService(context, CancellationToken.None);
 
-                var user = await service.CreateUserAsync(username, password);
+                Result<User> userResult = await service.CreateUserAsync(username, password);
 
-                Assert.NotNull(user);
-                Assert.Equal(user.Username, username);
+                Assert.True(userResult.IsSuccess);
+                Assert.NotNull(userResult.Value);
+                Assert.Equal(userResult.Value.Username, username);
             }
 
             using (var context = new Context(options))
@@ -50,15 +52,18 @@ public class UserServiceTests
                 var service = new UserService(context, CancellationToken.None);
                 var user = await service.CreateUserAsync(username, password);
 
-                Assert.NotNull(user);
-                Assert.Equal(user.Username, username);
+                Assert.True(user.IsSuccess);
+                Assert.NotNull(user.Value);
+                Assert.Equal(user.Value.Username, username);
             }
 
             using (var context = new Context(options))
             {
                 var service = new UserService(context, CancellationToken.None);
                 var user = await service.CreateUserAsync(username, password);
-                Assert.Null(user);
+
+                Assert.False(user.IsSuccess);
+                Assert.Equal(ServiceError.Conflict, user.Error);
             }
 
             using (var context = new Context(options))
@@ -78,7 +83,9 @@ public class UserServiceTests
             var user = await service.GetByIdAsync(0);
 
             Assert.Empty(context.Users);
-            Assert.Null(user);
+            Assert.False(user.IsSuccess);
+            Assert.Equal(ServiceError.NotFound, user.Error);
+            Assert.Null(user.Value);
         }
     }
 
@@ -107,8 +114,9 @@ public class UserServiceTests
             var user = await service.GetByIdAsync(id);
 
             Assert.NotEmpty(context.Users);
-            Assert.NotNull(user);
-            Assert.Equal(username, user.Username);
+            Assert.True(user.IsSuccess);
+            Assert.NotNull(user.Value);
+            Assert.Equal(username, user.Value.Username);
         }
     }
 
@@ -142,8 +150,9 @@ public class UserServiceTests
             var user = await service.GetByIdAsync(id);
 
             Assert.NotEmpty(context.Users);
-            Assert.NotNull(user);
-            Assert.Equal(username, user.Username);
+            Assert.True(user.IsSuccess);
+            Assert.NotNull(user.Value);
+            Assert.Equal(username, user.Value.Username);
         }
     }
 
@@ -155,16 +164,16 @@ public class UserServiceTests
     public async Task GetByName_Returns_Null_When_Db_Is_Empty(string username)
     {
         var (connection, options) = await DbTestHelper.SetupTestDbAsync();
-        User? user;
 
         using (var context = new Context(options))
         {
             var service = new UserService(context, CancellationToken.None);
-            user = await service.GetByNameAsync(username);
+            var user = await service.GetByNameAsync(username);
 
             Assert.Empty(context.Users);
+            Assert.False(user.IsSuccess);
+            Assert.Equal(ServiceError.NotFound, user.Error);
         }
-        Assert.Null(user);
     }
 
     [Theory]
@@ -204,15 +213,19 @@ public class UserServiceTests
         using (var context = new Context(options))
         {
             var service = new UserService(context, CancellationToken.None);
-            user = await service.GetByNameAsync(username);
+            var userResult = await service.GetByNameAsync(username);
 
             Assert.NotEmpty(context.Users);
+            Assert.True(userResult.IsSuccess);
+            Assert.NotNull(userResult.Value);
+            user = userResult.Value;
         }
 
         Assert.NotNull(user);
         Assert.Equal(username, user.Username);
     }
 
+    //todo: add test that tries to delete another user
     [Fact]
     public async Task DeleteUser_Deletes_User()
     {
@@ -238,9 +251,10 @@ public class UserServiceTests
             Assert.NotEmpty(context.Users);
 
             var service = new UserService(context, CancellationToken.None);
-            var result = await service.DeleteUserAsync(id);
+            var result = await service.DeleteUserAsync(id, id);
 
-            Assert.True(result);
+            Assert.True(result.IsSuccess);
+            Assert.Equal(ServiceError.None, result.Error);
             Assert.Empty(context.Users);
         }
 
@@ -280,17 +294,23 @@ public class UserServiceTests
         {
             var service = new UserService(context, CancellationToken.None);
 
-            var chores = await service.GetOwnedChoresByIdAsync(user.Id);
-            var logs = await service.GetAssociatedLogsByIdAsync(user.Id);
-            var memberships = await service.GetMembershipsByIdAsync(user.Id);
+            var choresResult = await service.GetOwnedChoresByIdAsync(user.Id);
+            var logsResult = await service.GetAssociatedLogsByIdAsync(user.Id);
+            var membershipsResult = await service.GetMembershipsByIdAsync(user.Id);
 
-            Assert.Single(chores); 
-            Assert.Equal(user.Id, chores.First().OwnerId);
-            Assert.Single(logs); 
-            Assert.Equal(user.Id, logs.First().UserId); 
-            Assert.Single(memberships); 
-            Assert.Equal(user.Id, memberships.First().UserId); 
-            Assert.True(memberships.First().IsAdmin); 
+            Assert.True(choresResult.IsSuccess); 
+            Assert.NotNull(choresResult.Value); 
+            Assert.Single(choresResult.Value); 
+            Assert.Equal(user.Id, choresResult.Value.First().OwnerId);
+            Assert.True(logsResult.IsSuccess); 
+            Assert.NotNull(logsResult.Value); 
+            Assert.Single(logsResult.Value); 
+            Assert.Equal(user.Id, logsResult.Value.First().UserId); 
+            Assert.True(membershipsResult.IsSuccess); 
+            Assert.NotNull(membershipsResult.Value); 
+            Assert.Single(membershipsResult.Value); 
+            Assert.Equal(user.Id, membershipsResult.Value.First().UserId); 
+            Assert.True(membershipsResult.Value.First().IsAdmin); 
         }
     }
 }

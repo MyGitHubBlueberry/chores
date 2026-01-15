@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Shared.Database.Models;
+using Shared.Networking;
 
 namespace Database.Services;
 
@@ -13,10 +14,10 @@ public class UserService(Context db, CancellationToken token)
 {
     //TODO: change password to be hashed
     //TODO: maybe switch to records in parameters?
-    public async Task<User?> CreateUserAsync(string username, string password)
+    public async Task<Result<User>> CreateUserAsync(string username, string password)
     {
         if (await db.Users.AnyAsync(u => u.Username == username, token))
-            return null;
+            return Result<User>.Fail(ServiceError.Conflict, "User already exists");
 
         User user = new User
         {
@@ -26,35 +27,65 @@ public class UserService(Context db, CancellationToken token)
         db.Users.Add(user);
         await db.SaveChangesAsync(token);
 
-        return user;
+        return Result<User>.Success(user);
     }
 
-    public async Task<User?> GetByIdAsync(int id) =>
-        await db.Users.FindAsync(id, token);
-
-    public async Task<User?> GetByNameAsync(string name) =>
-        await db.Users.Where(u => u.Username == name).FirstOrDefaultAsync(token);
-
-    public async Task<bool> DeleteUserAsync(int id)
+    public async Task<Result<User>> GetByIdAsync(int id)
     {
-        return await db.Users.Where(u => u.Id == id)
-            .ExecuteDeleteAsync(token) != 0;
+        User? u = await db.Users.FindAsync(id, token);
+        if (u is null)
+        {
+            return Result<User>.NotFound("User doesn't exist");
+        }
+        return Result<User>.Success(u);
     }
 
-    public async Task<ICollection<Chore>> GetOwnedChoresByIdAsync(int id) =>
-        await db.Chores
-        .Where(c => c.OwnerId == id)
-        .ToListAsync(token);
+    public async Task<Result<User>> GetByNameAsync(string name)
+    {
+        return await db.Users.Where(u => u.Username == name)
+            .FirstOrDefaultAsync(token) is User u 
+                ? Result<User>.Success(u)
+                : Result<User>.NotFound("User doesn't exist");
+    }
 
-    public async Task<ICollection<ChoreMember>> GetMembershipsByIdAsync(int id) =>
-        await db.ChoreMembers
-        .Where(cm => cm.UserId == id)
-        .ToListAsync(token);
+    public async Task<Result> DeleteUserAsync(int requesterId, int id)
+    {
+        if (requesterId != id) return Result.Forbidden();
+        return await db.Users.Where(u => u.Id == id)
+            .ExecuteDeleteAsync(token) != 0
+            ? Result.Success()
+            : Result.NotFound();
+    }
 
-    public async Task<ICollection<ChoreLog>> GetAssociatedLogsByIdAsync(int id) =>
-        await db.ChoreLogs
-        .Where(cl => cl.UserId == id)
-        .ToListAsync(token);
+    public async Task<Result<ICollection<Chore>>> GetOwnedChoresByIdAsync(int id)
+    {
+        if (!await db.Users.AnyAsync(u => u.Id == id))
+            return Result<ICollection<Chore>>.NotFound();
+        return Result<ICollection<Chore>>
+            .Success(await db.Chores
+                .Where(c => c.OwnerId == id)
+                .ToListAsync(token));
+    }
+
+    public async Task<Result<ICollection<ChoreMember>>> GetMembershipsByIdAsync(int id)
+    {
+        if (!await db.Users.AnyAsync(u => u.Id == id))
+            return Result<ICollection<ChoreMember>>.NotFound();
+        return Result<ICollection<ChoreMember>>
+            .Success(await db.ChoreMembers
+                .Where(cm => cm.UserId == id)
+                .ToListAsync(token));
+    }
+
+    public async Task<Result<ICollection<ChoreLog>>> GetAssociatedLogsByIdAsync(int id)
+    {
+        if (!await db.Users.AnyAsync(u => u.Id == id))
+            return Result<ICollection<ChoreLog>>.NotFound();
+        return Result<ICollection<ChoreLog>>
+            .Success(await db.ChoreLogs
+                .Where(cl => cl.UserId == id)
+                .ToListAsync(token));
+    }
 
     // public async Task<string> SetUserAwatarAsync(int id)
     // {
