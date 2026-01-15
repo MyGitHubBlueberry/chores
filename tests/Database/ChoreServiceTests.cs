@@ -67,6 +67,54 @@ public class ChoreServiceTests
         Assert.Null(choreResult.Value);
         Assert.Equal(ServiceError.Conflict, choreResult.Error);
     }
+    
+    [Fact]
+    public async Task CreateChore_Cant_Create_Chore_In_Past()
+    {
+        var (connection, options) = await DbTestHelper.SetupTestDbAsync();
+        using var context = new Context(options);
+        User user = await DbTestHelper.CreateAndAddUser("user", context);
+
+        var service = new ChoreService(context, CancellationToken.None);
+        CreateChoreRequest request = new(
+                Title: "Chore",
+                StartDate: DateTime.Parse("2005-01-01"));
+        var choreResult = await service.CreateChoreAsync(user.Id, request);
+        Assert.False(choreResult.IsSuccess);
+        Assert.Equal(ServiceError.InvalidInput, choreResult.Error);
+    }
+
+    [Fact]
+    public async Task CreateChore_Cant_Create_Chore_With_Zero_Duration()
+    {
+        var (connection, options) = await DbTestHelper.SetupTestDbAsync();
+        using var context = new Context(options);
+        User user = await DbTestHelper.CreateAndAddUser("user", context);
+
+        var service = new ChoreService(context, CancellationToken.None);
+        CreateChoreRequest request = new(
+                Title: "Chore",
+                Duration: TimeSpan.Zero);
+        var choreResult = await service.CreateChoreAsync(user.Id, request);
+        Assert.False(choreResult.IsSuccess);
+        Assert.Equal(ServiceError.InvalidInput, choreResult.Error);
+    }
+
+    [Fact]
+    public async Task CreateChore_Cant_Create_Chore_Ending_In_Past()
+    {
+        var (connection, options) = await DbTestHelper.SetupTestDbAsync();
+        using var context = new Context(options);
+        User user = await DbTestHelper.CreateAndAddUser("user", context);
+
+        var service = new ChoreService(context, CancellationToken.None);
+        CreateChoreRequest request = new(
+                Title: "Chore",
+                EndDate: DateTime.Parse("2005-01-01"));
+        var choreResult = await service.CreateChoreAsync(user.Id, request);
+        Assert.False(choreResult.IsSuccess);
+        Assert.Equal(ServiceError.InvalidInput, choreResult.Error);
+    }
 
     [Fact]
     public async Task DeleteChore_Not_Members_Cant_Delete()
