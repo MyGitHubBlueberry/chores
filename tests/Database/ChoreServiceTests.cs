@@ -67,7 +67,7 @@ public class ChoreServiceTests
         Assert.Null(choreResult.Value);
         Assert.Equal(ServiceError.Conflict, choreResult.Error);
     }
-    
+
     [Fact]
     public async Task CreateChore_Cant_Create_Chore_In_Past()
     {
@@ -217,14 +217,22 @@ public class ChoreServiceTests
                 .BuildAsync();
         var request = new UpdateChoreDetailsRequest(chore.Id,
                 "new", "new", "new");
-        using var context = new Context(options);
+        Result result;
 
-        Assert.True(await new ChoreService(context, CancellationToken.None)
-                .UpdateDetailsAsync(chore.OwnerId, request));
-        chore = await context.Chores.FirstAsync();
-        Assert.Equal(chore.Title, request.Title);
-        Assert.Equal(chore.Body, request.Body);
-        Assert.Equal(chore.AvatarUrl, request.AvatarUrl);
+        using (var context = new Context(options))
+        {
+            result = await new ChoreService(context, CancellationToken.None)
+                .UpdateDetailsAsync(chore.OwnerId, request);
+        }
+
+        using (var context = new Context(options))
+        {
+            chore = await context.Chores.FirstAsync();
+            Assert.True(result.IsSuccess);
+            Assert.Equal(request.Title, chore.Title);
+            Assert.Equal(request.Body, chore.Body);
+            Assert.Equal(request.AvatarUrl, chore.AvatarUrl);
+        }
     }
 
     [Fact]
@@ -238,8 +246,9 @@ public class ChoreServiceTests
 
         using var context = new Context(options);
         var request = new UpdateChoreDetailsRequest(chore.Id);
-        Assert.True(await new ChoreService(context, CancellationToken.None)
-                .UpdateDetailsAsync(chore.OwnerId, request));
+        var responce = await new ChoreService(context, CancellationToken.None)
+                .UpdateDetailsAsync(chore.OwnerId, request);
+        Assert.True(responce.IsSuccess);
         chore = await context.Chores.FirstAsync();
         Assert.NotNull(chore.Title);
         Assert.NotNull(chore.Body);
@@ -264,8 +273,10 @@ public class ChoreServiceTests
         using var context = new Context(options);
         var request = new UpdateChoreDetailsRequest(chore.Id,
                 "new", "new", "new");
-        Assert.False(await new ChoreService(context, CancellationToken.None)
-                .UpdateDetailsAsync(userId, request));
+        var responce = await new ChoreService(context, CancellationToken.None)
+                .UpdateDetailsAsync(userId, request);
+        Assert.False(responce.IsSuccess);
+        Assert.Equal(ServiceError.Forbidden, responce.Error);
         chore = await context.Chores.FirstAsync();
         Assert.Equal(startingValue, chore.Title);
         Assert.Equal(startingValue, chore.Body);

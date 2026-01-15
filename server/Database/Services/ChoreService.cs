@@ -41,7 +41,8 @@ public class ChoreService(Context db, CancellationToken token)
         };
 
         var result = ChangeChoreScheduleIfValid(chore, request);
-        if (!result.IsSuccess){
+        if (!result.IsSuccess)
+        {
             return Result<Chore>
                 .Fail(result.Error, result.ErrorMessage ?? "Error in chore schedule");
         }
@@ -68,31 +69,44 @@ public class ChoreService(Context db, CancellationToken token)
 
     public async Task<Result> DeleteChoreAsync(int userId, int choreId)
     {
-        var chore = await db.Chores.FindAsync(choreId);
-        if (chore is null)
+        if (!await db.Chores.AnyAsync(ch => ch.Id == choreId))
             return Result.NotFound("Chore not found");
         if (!await db.Users.AnyAsync(u => u.Id == userId))
             return Result.NotFound("User not found");
-        if (!EnsureSufficientPrivileges(Privileges.Owner, chore, userId))
+        if (!await ArePrivilegesSufficientAsync(Privileges.Owner, choreId, userId))
             return Result.Forbidden();
         return await db.Chores
             .Where(ch => ch.Id == choreId)
-            .Where(ch => ch.OwnerId == userId)
             .ExecuteDeleteAsync(token) != 0
                 ? Result.Success()
                 : Result.Fail(ServiceError.DatabaseError, "Could not delete chore");  //should never happen
     }
 
-    public async Task<bool> UpdateDetailsAsync
-        (int userId, UpdateChoreDetailsRequest request) =>
-        await db.Chores
-            .Where(c => c.Id == request.ChoreId &&
-                    (c.OwnerId == userId || c.Members.Any(m => m.UserId == userId && m.IsAdmin)))
+    public async Task<Result> UpdateDetailsAsync
+        (int userId, UpdateChoreDetailsRequest request)
+    {
+        var chore = await db.Chores.FindAsync(request.ChoreId);
+        if (chore is null)
+            return Result.NotFound("Chore not found");
+        if (!await db.Users.AnyAsync(u => u.Id == userId))
+            return Result.NotFound("User not found");
+        if (!await ArePrivilegesSufficientAsync(Privileges.Admin, request.ChoreId, userId))
+            return Result.Forbidden();
+        if (await db.Chores.AnyAsync(ch => ch.Title == request.Title 
+                    && ch.OwnerId == chore.OwnerId))
+            return Result.Fail(ServiceError.Conflict, 
+                    "One member can't own 2 chores with the same name");
+
+        return await db.Chores
+            .Where(c => c.Id == request.ChoreId)
             .ExecuteUpdateAsync(setters => setters
                 .SetProperty(c => c.Title, c => request.Title ?? c.Title)
                 .SetProperty(c => c.Body, c => request.Body ?? c.Body)
                 .SetProperty(c => c.AvatarUrl, c => request.AvatarUrl ?? c.AvatarUrl),
-            token) != 0;
+            token) != 0
+                ? Result.Success()
+                : Result.Fail(ServiceError.DatabaseError, "Could not update chore details");  //should never happen
+    }
 
     //TODO: should regen chore queue if any members participate in chore
     //TODO: add verification
@@ -721,13 +735,19 @@ public class ChoreService(Context db, CancellationToken token)
     }
     #endregion
 
-    private bool EnsureSufficientPrivileges
-        (Privileges privilege, Chore chore, int userId) => privilege switch
+    private async Task<bool> ArePrivilegesSufficientAsync
+        (Privileges privilege, int choreId, int userId) => privilege switch
         {
-            Privileges.Owner => chore.OwnerId == userId,
-            Privileges.Admin => chore.Members.Any(m => m.UserId == userId
-                    && m.IsAdmin),
-            Privileges.Member => chore.Members.Any(m => m.UserId == userId),
+            Privileges.Owner => await db.Chores
+                .AnyAsync(ch => ch.Id == choreId 
+                    && ch.OwnerId == userId),
+            Privileges.Admin => await db.Chores
+                .Include(ch => ch.Members)
+                .AnyAsync(ch => ch.Members
+                        .Any(m => m.UserId == userId && m.IsAdmin)),
+            Privileges.Member => await db.Chores
+                .Include(ch => ch.Members)
+                .AnyAsync(ch => ch.Members.Any(m => m.UserId == userId)),
             _ => false,
         };
 
