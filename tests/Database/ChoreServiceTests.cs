@@ -321,8 +321,10 @@ public class ChoreServiceTests
         Assert.NotEqual(request.EndDate, chore.StartDate);
         Assert.NotEqual(request.Interval, chore.Interval);
         Assert.NotEqual(request.Duration, chore.Duration);
-        Assert.False(await new ChoreService(context, CancellationToken.None)
-                .UpdateScheduleAsync(userId, request));
+        var result = await new ChoreService(context, CancellationToken.None)
+                .UpdateScheduleAsync(userId, request);
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ServiceError.Forbidden, result.Error);
         Assert.NotEqual(request.EndDate, chore.StartDate);
         Assert.NotEqual(request.Interval, chore.Interval);
         Assert.NotEqual(request.Duration, chore.Duration);
@@ -337,7 +339,7 @@ public class ChoreServiceTests
                 .WithMember()
                 .BuildAsync();
         var request = new UpdateChoreScheduleRequest(chore.Id,
-                EndDate: DateTime.Parse("2005-12-12"),
+                EndDate: DateTime.Parse("2035-12-12"),
                 Interval: TimeSpan.FromDays(3),
                 Duration: TimeSpan.FromDays(3));
         using var context = new Context(options);
@@ -345,8 +347,8 @@ public class ChoreServiceTests
         Assert.NotEqual(request.EndDate, chore.EndDate);
         Assert.NotEqual(request.Interval, chore.Interval);
         Assert.NotEqual(request.Duration, chore.Duration);
-        Assert.True(await new ChoreService(context, CancellationToken.None)
-                .UpdateScheduleAsync(chore.OwnerId, request));
+        Assert.True((await new ChoreService(context, CancellationToken.None)
+                .UpdateScheduleAsync(chore.OwnerId, request)).IsSuccess);
         chore = await context.Chores.FirstAsync();
         Assert.Equal(request.EndDate, chore.EndDate);
         Assert.Equal(request.Interval, chore.Interval);

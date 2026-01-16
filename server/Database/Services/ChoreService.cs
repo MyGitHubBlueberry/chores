@@ -92,9 +92,9 @@ public class ChoreService(Context db, CancellationToken token)
             return Result.NotFound("User not found");
         if (!await ArePrivilegesSufficientAsync(Privileges.Admin, request.ChoreId, userId))
             return Result.Forbidden();
-        if (await db.Chores.AnyAsync(ch => ch.Title == request.Title 
+        if (await db.Chores.AnyAsync(ch => ch.Title == request.Title
                     && ch.OwnerId == chore.OwnerId))
-            return Result.Fail(ServiceError.Conflict, 
+            return Result.Fail(ServiceError.Conflict,
                     "One member can't own 2 chores with the same name");
 
         return await db.Chores
@@ -110,16 +110,66 @@ public class ChoreService(Context db, CancellationToken token)
 
     //TODO: should regen chore queue if any members participate in chore
     //TODO: add verification
-    public async Task<bool> UpdateScheduleAsync
-        (int userId, UpdateChoreScheduleRequest request) =>
-        await db.Chores
-            .Where(c => c.Id == request.ChoreId &&
-                    (c.OwnerId == userId || c.Members.Any(m => m.UserId == userId && m.IsAdmin)))
-            .ExecuteUpdateAsync(setters => setters
-                .SetProperty(c => c.EndDate, c => request.EndDate == null ? c.EndDate : request.EndDate)
-                .SetProperty(c => c.Interval, c => request.Interval == null ? c.Interval : request.Interval)
-                .SetProperty(c => c.Duration, c => request.Duration == null ? c.Duration : request.Duration),
-            token) != 0;
+    public async Task<Result> UpdateScheduleAsync
+        (int userId, UpdateChoreScheduleRequest request)
+    {
+        var chore = await db.Chores
+            .Include(ch => ch.Logs)
+            .Include(ch => ch.QueueItems)
+            .FirstOrDefaultAsync(ch => ch.Id == request.ChoreId);
+        if (chore is null)
+            return Result.NotFound("Chore not found");
+        if (!await db.Users.AnyAsync(u => u.Id == userId))
+            return Result.NotFound("User not found");
+        if (!await ArePrivilegesSufficientAsync(Privileges.Admin, request.ChoreId, userId))
+            return Result.Forbidden();
+        if (!request.EndDate.HasValue
+                && !request.Interval.HasValue
+                && !request.Duration.HasValue)
+            return Result.Fail(ServiceError.InvalidInput, "Request is empty");
+        if (request.EndDate.HasValue)
+        {
+            if (request.EndDate <= chore.StartDate)
+            {
+                return Result.Fail(ServiceError.InvalidInput,
+                        "End date can't be before start date");
+            }
+            if (chore.Logs.Any())
+            {
+                var lastCompletedChore = chore.Logs
+                    .OrderBy(l => l.CompletedAt)
+                    .Select(l => l.CompletedAt + l.Duration)
+                    .Last();
+                if (request.EndDate <= lastCompletedChore)
+                {
+                    return Result.Fail(ServiceError.InvalidInput,
+                            "End date can't be before previousely completed chores");
+                }
+            }
+            
+            await db.ChoreQueue
+                .Where(q => q.ChoreId == request.ChoreId)
+                .Where(q => q.ScheduledDate >= request.EndDate)
+                .ExecuteDeleteAsync(token);
+
+            chore.EndDate = request.EndDate;
+        }
+        if (request.Interval.HasValue)
+            chore.Interval = request.Interval.Value;
+        if (request.Duration.HasValue)
+            chore.Duration = request.Duration.Value;
+
+        try
+        {
+            await db.SaveChangesAsync(token);
+        }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            return Result<Chore>.Fail(ServiceError.DatabaseError, e.Message);
+        }
+
+        return Result<Chore>.Success(chore);
+    }
 
     public async Task<bool> SetIsPausedAsync
         (int userId, int choreId, bool isPaused) =>
@@ -739,7 +789,7 @@ public class ChoreService(Context db, CancellationToken token)
         (Privileges privilege, int choreId, int userId) => privilege switch
         {
             Privileges.Owner => await db.Chores
-                .AnyAsync(ch => ch.Id == choreId 
+                .AnyAsync(ch => ch.Id == choreId
                     && ch.OwnerId == userId),
             Privileges.Admin => await db.Chores
                 .Include(ch => ch.Members)
