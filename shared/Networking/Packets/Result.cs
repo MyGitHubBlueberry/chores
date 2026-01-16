@@ -37,7 +37,7 @@ public class Result<T> : Result
 {
     public T? Value { get; }
 
-    private Result(Result result, T? value)
+    protected Result(Result result, T? value)
         : base(result.IsSuccess, result.Error, result.ErrorMessage)
     {
         Value = value;
@@ -52,4 +52,8 @@ public class Result<T> : Result
         => Fail(ServiceError.NotFound, message);
     public static new Result<T> Forbidden(string message = "Insuffitient privileges") 
         => Fail(ServiceError.Forbidden, message);
+    public static Result<T> FromSucessfulResult(Result result, T value)
+        => new Result<T>(result, value);
+    public static Result<T> FromFailedResult(Result result)
+        => new Result<T>(result, default);
 }

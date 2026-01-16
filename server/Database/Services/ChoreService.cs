@@ -69,12 +69,8 @@ public class ChoreService(Context db, CancellationToken token)
 
     public async Task<Result> DeleteChoreAsync(int userId, int choreId)
     {
-        if (!await db.Chores.AnyAsync(ch => ch.Id == choreId))
-            return Result.NotFound("Chore not found");
-        if (!await db.Users.AnyAsync(u => u.Id == userId))
-            return Result.NotFound("User not found");
-        if (!await ArePrivilegesSufficientAsync(Privileges.Owner, choreId, userId))
-            return Result.Forbidden();
+        var result = await ExistsAndSufficientPrivilegesAsync(choreId, userId, Privileges.Owner);
+        if (!result.IsSuccess) return result;
         return await db.Chores
             .Where(ch => ch.Id == choreId)
             .ExecuteDeleteAsync(token) != 0
@@ -85,15 +81,13 @@ public class ChoreService(Context db, CancellationToken token)
     public async Task<Result> UpdateDetailsAsync
         (int userId, UpdateChoreDetailsRequest request)
     {
-        var chore = await db.Chores.FindAsync(request.ChoreId, token);
-        if (chore is null)
-            return Result.NotFound("Chore not found");
-        if (!await db.Users.AnyAsync(u => u.Id == userId, token))
-            return Result.NotFound("User not found");
-        if (!await ArePrivilegesSufficientAsync(Privileges.Admin, request.ChoreId, userId))
-            return Result.Forbidden();
+        var result = await ExistsAndSufficientPrivilegesAsync
+            (request.ChoreId, userId, Privileges.Owner);
+        if (!result.IsSuccess) 
+            return result;
+        var ownerId = (await db.Chores.FindAsync(request.ChoreId))?.OwnerId;
         if (await db.Chores.AnyAsync(ch => ch.Title == request.Title
-                    && ch.OwnerId == chore.OwnerId, token))
+                    && ch.OwnerId == ownerId, token))
             return Result.Fail(ServiceError.Conflict,
                     "One member can't own 2 chores with the same name");
 
@@ -109,7 +103,6 @@ public class ChoreService(Context db, CancellationToken token)
     }
 
     //TODO: should regen chore queue if any members participate in chore
-    //TODO: add verification
     public async Task<Result> UpdateScheduleAsync
         (int userId, UpdateChoreScheduleRequest request)
     {
@@ -118,16 +111,15 @@ public class ChoreService(Context db, CancellationToken token)
             .Include(ch => ch.Logs)
             .Include(ch => ch.QueueItems)
             .FirstOrDefaultAsync(ch => ch.Id == request.ChoreId, token);
-        if (chore is null)
-            return Result.NotFound("Chore not found");
-        if (!await db.Users.AnyAsync(u => u.Id == userId))
-            return Result.NotFound("User not found");
-        if (!await ArePrivilegesSufficientAsync(Privileges.Admin, request.ChoreId, userId))
-            return Result.Forbidden();
+        var result = await ExistsAndSufficientPrivilegesAsync
+            (request.ChoreId, userId, Privileges.Owner);
+        Debug.Assert(chore is not null);
+        if (!result.IsSuccess) return result;
         if (!request.EndDate.HasValue
                 && !request.Interval.HasValue
                 && !request.Duration.HasValue)
             return Result.Fail(ServiceError.InvalidInput, "Request is empty");
+
         if (request.Interval.HasValue ||
                 request.Duration.HasValue)
         {
@@ -193,25 +185,15 @@ public class ChoreService(Context db, CancellationToken token)
     public async Task<Result> PauseChoreAsync
         (int userId, int choreId)
     {
-        var chore = await db.Chores
-            .FirstOrDefaultAsync(ch => ch.Id == choreId);
-        if (chore is null)
-            return Result.NotFound("Chore not found");
-        if (!await db.Users.AnyAsync(u => u.Id == userId))
-            return Result.NotFound("User not found");
-        if (!await ArePrivilegesSufficientAsync(Privileges.Admin, choreId, userId))
-            return Result.Forbidden();
-        chore.IsPaused = true;
-
-        try
-        {
-            await db.SaveChangesAsync(token);
-        }
-        catch (Exception e) when (e is not OperationCanceledException)
-        {
-            return Result.Fail(ServiceError.DatabaseError, e.Message);
-        }
-        return Result.Success();
+        var result = await ExistsAndSufficientPrivilegesAsync
+            (choreId, userId, Privileges.Admin);
+        if (!result.IsSuccess) return result;
+        return (await db.Chores
+                .Where(ch => ch.Id == choreId)
+                .ExecuteUpdateAsync(setters => 
+                    setters.SetProperty(ch => ch.IsPaused, true))) != 0
+            ? Result.Success()
+            : Result.Fail(ServiceError.DatabaseError, "Failed to pause the chore");
     }
 
     public async Task<Result> UnpauseChoreAsync
@@ -959,5 +941,17 @@ public class ChoreService(Context db, CancellationToken token)
             Duration = chore.Duration;
             Interval = chore.Interval;
         }
+    }
+
+    private async Task<Result> ExistsAndSufficientPrivilegesAsync
+        (int choreId, int userId, Privileges privilege) 
+    {
+        if (!await db.Chores.AnyAsync(ch => ch.Id == choreId))
+            return Result.NotFound("Chore not found");
+        if (!await db.Users.AnyAsync(u => u.Id == userId))
+            return Result.NotFound("User not found");
+        if (!await ArePrivilegesSufficientAsync(privilege, choreId, userId))
+            return Result.Forbidden();
+        return Result.Success();
     }
 }
