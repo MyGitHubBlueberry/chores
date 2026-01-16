@@ -42,10 +42,7 @@ public class ChoreService(Context db, CancellationToken token)
 
         var result = ChangeChoreScheduleIfValid(chore, request);
         if (!result.IsSuccess)
-        {
-            return Result<Chore>
-                .Fail(result.Error, result.ErrorMessage ?? "Error in chore schedule");
-        }
+            return Result<Chore>.FromFailedResult(result);
 
         chore.Members.Add(new ChoreMember
         {
@@ -55,14 +52,7 @@ public class ChoreService(Context db, CancellationToken token)
 
         await db.Chores.AddAsync(chore, token);
 
-        try
-        {
-            await db.SaveChangesAsync(token);
-        }
-        catch (Exception e) when (e is not OperationCanceledException)
-        {
-            return Result<Chore>.Fail(ServiceError.DatabaseError, e.Message);
-        }
+        await db.SaveChangesAsync(token);
 
         return Result<Chore>.Success(chore);
     }
@@ -83,7 +73,7 @@ public class ChoreService(Context db, CancellationToken token)
     {
         var result = await ExistsAndSufficientPrivilegesAsync
             (request.ChoreId, userId, Privileges.Owner);
-        if (!result.IsSuccess) 
+        if (!result.IsSuccess)
             return result;
         var ownerId = (await db.Chores.FindAsync(request.ChoreId))?.OwnerId;
         if (await db.Chores.AnyAsync(ch => ch.Title == request.Title
@@ -108,29 +98,27 @@ public class ChoreService(Context db, CancellationToken token)
     {
         bool shouldRegenerateQueue = false;
         var chore = await db.Chores
-            .Include(ch => ch.Logs)
-            .Include(ch => ch.QueueItems)
             .FirstOrDefaultAsync(ch => ch.Id == request.ChoreId, token);
+
         var result = await ExistsAndSufficientPrivilegesAsync
             (request.ChoreId, userId, Privileges.Owner);
-        Debug.Assert(chore is not null);
         if (!result.IsSuccess) return result;
+        Debug.Assert(chore is not null);
+
         if (!request.EndDate.HasValue
                 && !request.Interval.HasValue
                 && !request.Duration.HasValue)
             return Result.Fail(ServiceError.InvalidInput, "Request is empty");
 
-        if (request.Interval.HasValue ||
-                request.Duration.HasValue)
+        using var transaction = await db.Database.BeginTransactionAsync(token);
+        if (request.Interval.HasValue)
         {
-            if (request.Interval.HasValue)
-            {
-                chore.Interval = request.Interval.Value;
-            }
-            if (request.Duration.HasValue)
-            {
-                chore.Duration = request.Duration.Value;
-            }
+            chore.Interval = request.Interval.Value;
+            shouldRegenerateQueue = true;
+        }
+        if (request.Duration.HasValue)
+        {
+            chore.Duration = request.Duration.Value;
             shouldRegenerateQueue = true;
         }
 
@@ -143,11 +131,10 @@ public class ChoreService(Context db, CancellationToken token)
             }
             if (chore.Logs.Any())
             {
-                var lastCompletedChore = chore.Logs
-                    .OrderBy(l => l.CompletedAt)
-                    .Select(l => l.CompletedAt + l.Duration)
-                    .Last();
-                if (request.EndDate <= lastCompletedChore)
+                var lastLogDate = await db.ChoreLogs
+                    .Where(l => l.ChoreId == request.ChoreId)
+                    .MaxAsync(l => (DateTime?)(l.CompletedAt + l.Duration), token);
+                if (lastLogDate.HasValue && request.EndDate <= lastLogDate)
                 {
                     return Result.Fail(ServiceError.InvalidInput,
                             "End date can't be before previousely completed chores");
@@ -170,14 +157,8 @@ public class ChoreService(Context db, CancellationToken token)
             await RegenerateQueueAsync(request.ChoreId, userId);
         }
 
-        try
-        {
-            await db.SaveChangesAsync(token);
-        }
-        catch (Exception e) when (e is not OperationCanceledException)
-        {
-            return Result<Chore>.Fail(ServiceError.DatabaseError, e.Message);
-        }
+        await db.SaveChangesAsync(token);
+        await transaction.CommitAsync(token);
 
         return Result<Chore>.Success(chore);
     }
@@ -190,7 +171,7 @@ public class ChoreService(Context db, CancellationToken token)
         if (!result.IsSuccess) return result;
         return (await db.Chores
                 .Where(ch => ch.Id == choreId)
-                .ExecuteUpdateAsync(setters => 
+                .ExecuteUpdateAsync(setters =>
                     setters.SetProperty(ch => ch.IsPaused, true))) != 0
             ? Result.Success()
             : Result.Fail(ServiceError.DatabaseError, "Failed to pause the chore");
@@ -224,7 +205,7 @@ public class ChoreService(Context db, CancellationToken token)
             chore.QueueItems
                 .Where(q => q.ScheduledDate < DateTime.UtcNow)
                 .ToList()
-                .ForEach(q => {q.ScheduledDate += offset;});
+                .ForEach(q => { q.ScheduledDate += offset; });
         }
 
         try
@@ -827,7 +808,6 @@ public class ChoreService(Context db, CancellationToken token)
             .FirstOrDefaultAsync(token);
         if (chore is null) return false;
 
-        using var transaction = await db.Database.BeginTransactionAsync(token);
         chore.QueueItems.Clear();
         await db.SaveChangesAsync(token);
         daysToRegenerarate = daysToRegenerarate is null
@@ -837,7 +817,6 @@ public class ChoreService(Context db, CancellationToken token)
                     daysToRegenerarate.Value
                     ))
             return false;
-        await transaction.CommitAsync(token);
         return true;
     }
     #endregion
@@ -944,7 +923,7 @@ public class ChoreService(Context db, CancellationToken token)
     }
 
     private async Task<Result> ExistsAndSufficientPrivilegesAsync
-        (int choreId, int userId, Privileges privilege) 
+        (int choreId, int userId, Privileges privilege)
     {
         if (!await db.Chores.AnyAsync(ch => ch.Id == choreId))
             return Result.NotFound("Chore not found");
