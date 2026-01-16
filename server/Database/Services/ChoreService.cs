@@ -129,16 +129,13 @@ public class ChoreService(Context db, CancellationToken token)
                 return Result.Fail(ServiceError.InvalidInput,
                         "End date can't be before start date");
             }
-            if (chore.Logs.Any())
+            var lastLogDate = await db.ChoreLogs
+                .Where(l => l.ChoreId == request.ChoreId)
+                .MaxAsync(l => (DateTime?)(l.CompletedAt + l.Duration), token);
+            if (lastLogDate.HasValue && request.EndDate <= lastLogDate)
             {
-                var lastLogDate = await db.ChoreLogs
-                    .Where(l => l.ChoreId == request.ChoreId)
-                    .MaxAsync(l => (DateTime?)(l.CompletedAt + l.Duration), token);
-                if (lastLogDate.HasValue && request.EndDate <= lastLogDate)
-                {
-                    return Result.Fail(ServiceError.InvalidInput,
-                            "End date can't be before previousely completed chores");
-                }
+                return Result.Fail(ServiceError.InvalidInput,
+                        "End date can't be before previousely completed chores");
             }
 
             if (!shouldRegenerateQueue)
@@ -182,7 +179,6 @@ public class ChoreService(Context db, CancellationToken token)
     {
         var chore = await db.Chores
             .Include(ch => ch.QueueItems)
-            .Include(ch => ch.Members)
             .FirstOrDefaultAsync(ch => ch.Id == choreId);
         if (chore is null)
             return Result.NotFound("Chore not found");
@@ -192,9 +188,11 @@ public class ChoreService(Context db, CancellationToken token)
             return Result.Forbidden();
 
         if (!chore.IsPaused) return Result.Success();
+
         if (chore.EndDate.HasValue && chore.EndDate <= DateTime.UtcNow)
             return Result.Fail(ServiceError.Conflict, "Can't unpause ended chore");
-        if (!chore.Members.Any(m => m.RotationOrder.HasValue))
+        if (!await db.ChoreMembers.AnyAsync(m => m.ChoreId == choreId
+                    && m.RotationOrder.HasValue))
             return Result.Fail(ServiceError.Conflict, "Can't unpause chore without active members");
         if (chore.QueueItems.Any(i => i.ScheduledDate < DateTime.UtcNow))
         {
