@@ -202,8 +202,8 @@ public class ChoreService(Context db, CancellationToken token)
         var minDate = await db.ChoreQueue
             .Where(q => q.ChoreId == choreId
                     && q.ScheduledDate < DateTime.UtcNow)
-            .MinAsync(q => (DateTime?) q.ScheduledDate, token);
-        if (minDate.HasValue) 
+            .MinAsync(q => (DateTime?)q.ScheduledDate, token);
+        if (minDate.HasValue)
         {
             var offset = DateTime.UtcNow - minDate.Value;
             await db.ChoreQueue
@@ -299,54 +299,49 @@ public class ChoreService(Context db, CancellationToken token)
         // x, 2, 0, 1, 4, 3 5 == 5
     }
 
-    private int? GetNextMemberIdx(Chore chore)
+    private int? GetNextMemberIdx(Chore chore, int count = 1)
     {
+        Debug.Assert(count >= 1);
         int totalWorkers = chore.Members.Count(m => m.RotationOrder.HasValue);
-        return (chore.CurrentQueueMemberIdx + 1) % totalWorkers;
+        return (chore.CurrentQueueMemberIdx + count) % totalWorkers;
     }
 
+    //todo: add queue extention
     public async Task ProcessMissedChoresAsync()
     {
         var missedItems = await db.ChoreQueue
             .Include(q => q.Chore)
-            .Where(q => q.ScheduledDate + q.Chore.Duration < DateTime.UtcNow) //todo: fix warning
+            .Where(q => q.ScheduledDate + q.Chore!.Duration < DateTime.UtcNow)
             .ToListAsync(token);
-        //TODO: maybe do this in parallel?
-        foreach (var item in missedItems)
-        {
-            Debug.Assert(item.Chore is not null);
-            item.Chore.Logs.Add(new ChoreLog
+        if (missedItems.Count == 0) return;
+
+        await db.ChoreLogs.AddRangeAsync(missedItems
+                .Select(i => new ChoreLog
+                {
+                    Duration = i.Chore!.Duration,
+                    ChoreId = i.Chore.Id,
+                    Status = Shared.Database.Enums.ChoreStatus.Missed,
+                    CompletedAt = DateTime.UtcNow,
+                    UserId = i.AssignedMemberId,
+                }), token);
+
+        await db.ChoreQueue
+            .Where(q => q.ScheduledDate + q.Chore!.Duration < DateTime.UtcNow)
+            .ExecuteDeleteAsync(token);
+
+        var choreIds = missedItems.Select(i => i.ChoreId).Distinct();
+        missedItems
+            .GroupBy(i => i.Chore)
+            .Select(i => (i.First().Chore, i.Count()))
+            .Distinct()
+            .ToList()
+            .ForEach(tuple=>
             {
-                Duration = item.Chore.Duration,
-                ChoreId = item.ChoreId,
-                Status = Shared.Database.Enums.ChoreStatus.Missed,
-                CompletedAt = DateTime.UtcNow,
-                UserId = item.AssignedMemberId,
+                var (chore, missedItemCount) = tuple;
+                chore!.CurrentQueueMemberIdx = GetNextMemberIdx(chore, missedItemCount);
             });
 
-            //TODO: 
-            //should i let chore be missed?
-            item.Chore.CurrentQueueMemberIdx = GetNextMemberIdx(item.Chore);
-            item.Chore.QueueItems.Remove(item);
-            // TODO: if testing doesn't pass maybe i need save here
-            var date = item.Chore.QueueItems
-                .OrderBy(i => i.ScheduledDate)
-                .Select(i => i.ScheduledDate)
-                .LastOrDefault();
-            item.Chore.QueueItems.Add(new ChoreQueue
-            {
-                ChoreId = item.ChoreId,
-                ScheduledDate = date + item.Chore.Duration + item.Chore.Interval,
-                AssignedMemberId = GetNextChoreItemIdx(item.Chore),
-            });
-            //should i reassign chore to the member who missed the chore?
-            //should i abstract this behaviour and let it be assigned on per chore basis?
-        }
-
-        if (missedItems.Count > 0)
-        {
-            await db.SaveChangesAsync(token);
-        }
+        await db.SaveChangesAsync(token);
     }
     #endregion
 
@@ -523,10 +518,10 @@ public class ChoreService(Context db, CancellationToken token)
         int memberCount = membersIdsFromRotaionOrder.Length;
         DateTime date = chore.QueueItems.Any()
             ? chore.QueueItems.OrderBy(i => i.ScheduledDate)
-                .Last().ScheduledDate + chore.Duration + chore.Interval
+            .Last().ScheduledDate + chore.Duration + chore.Interval
             : (chore.StartDate < DateTime.UtcNow
-                ? DateTime.UtcNow
-                : chore.StartDate);
+                    ? DateTime.UtcNow
+                    : chore.StartDate);
 
         TimeSpan durationToCover = TimeSpan.FromDays(days);
         //todo: fix interval causes chore to be dismissed at the end
@@ -539,7 +534,7 @@ public class ChoreService(Context db, CancellationToken token)
             {
                 AssignedMemberId =
                     membersIdsFromRotaionOrder
-                        [(newQueueMemberRotationOrderIdx + i) % memberCount],
+                    [(newQueueMemberRotationOrderIdx + i) % memberCount],
                 ScheduledDate = date
             };
             date += chore.Interval + chore.Duration;
@@ -642,8 +637,8 @@ public class ChoreService(Context db, CancellationToken token)
             }
         }
         var afterItems = chore.QueueItems
-                .Where(q => q.ScheduledDate >= entry.ScheduledDate)
-                .OrderBy(q => q.ScheduledDate);
+            .Where(q => q.ScheduledDate >= entry.ScheduledDate)
+            .OrderBy(q => q.ScheduledDate);
         if (afterItems.Any())
         {
             TimeSpan interval = entry.ScheduledDate
@@ -681,7 +676,7 @@ public class ChoreService(Context db, CancellationToken token)
             .Clamp(desiredOrderRotationIdx, 0, rotationMemberCount);
         chore.Members
             .Where(m => m.RotationOrder.HasValue
-                && m.RotationOrder >= desiredOrderRotationIdx)
+                    && m.RotationOrder >= desiredOrderRotationIdx)
             .ToList()
             .ForEach(m => m.RotationOrder++);
         member.RotationOrder = desiredOrderRotationIdx;
@@ -734,11 +729,11 @@ public class ChoreService(Context db, CancellationToken token)
             .FirstOrDefaultAsync(token);
         if (chore is null) return false;
         if (!chore.QueueItems
-            .Any(q => entry.AssignedMemberId == q.AssignedMemberId
+                .Any(q => entry.AssignedMemberId == q.AssignedMemberId
                     && entry.ScheduledDate == q.ScheduledDate)) return false;
 
         var afterItems = chore.QueueItems
-                .Where(q => q.ScheduledDate > entry.ScheduledDate);
+            .Where(q => q.ScheduledDate > entry.ScheduledDate);
         if (afterItems.Any())
         {
             TimeSpan interval = afterItems.First().ScheduledDate - entry.ScheduledDate;
@@ -796,7 +791,7 @@ public class ChoreService(Context db, CancellationToken token)
         }
 
         db.ChoreQueue.RemoveRange(chore.QueueItems
-                    .Where(q => q.AssignedMemberId == memberId));
+                .Where(q => q.AssignedMemberId == memberId));
         member.RotationOrder = null;
         await db.SaveChangesAsync(token);
         return true;
@@ -830,7 +825,7 @@ public class ChoreService(Context db, CancellationToken token)
         {
             Privileges.Owner => await db.Chores
                 .AnyAsync(ch => ch.Id == choreId
-                    && ch.OwnerId == userId),
+                        && ch.OwnerId == userId),
             Privileges.Admin => await db.Chores
                 .Include(ch => ch.Members)
                 .AnyAsync(ch => ch.Members
