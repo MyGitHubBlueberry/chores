@@ -10,6 +10,7 @@ using Shared.Networking;
 using Shared.Networking.Packets;
 
 namespace Database.Services;
+//todo: assigned date for chorelog?
 
 //todo: add end date to chore? and make it nullable
 //todo: add method to change intervals
@@ -92,7 +93,6 @@ public class ChoreService(Context db, CancellationToken token)
                 : Result.Fail(ServiceError.DatabaseError, "Could not update chore details");  //should never happen
     }
 
-    //TODO: should regen chore queue if any members participate in chore
     public async Task<Result> UpdateScheduleAsync
         (int userId, UpdateChoreScheduleRequest request)
     {
@@ -129,9 +129,13 @@ public class ChoreService(Context db, CancellationToken token)
                 return Result.Fail(ServiceError.InvalidInput,
                         "End date can't be before start date");
             }
-            var lastLogDate = await db.ChoreLogs
+            var dates = db.ChoreLogs
                 .Where(l => l.ChoreId == request.ChoreId)
-                .MaxAsync(l => (DateTime?)(l.CompletedAt + l.Duration), token);
+                .OrderBy(d => d)
+                .Select(l => l.CompletedAt);
+            DateTime? lastLogDate = await dates.AnyAsync()
+                ? await dates.FirstAsync()
+                : null;
             if (lastLogDate.HasValue && request.EndDate <= lastLogDate)
             {
                 return Result.Fail(ServiceError.InvalidInput,
@@ -214,39 +218,45 @@ public class ChoreService(Context db, CancellationToken token)
         return Result.Success();
     }
 
-    public async Task<bool> CompleteChore(int userId, int choreId)
+    public async Task<Result> CompleteChoreAsync(int userId, int choreId)
     {
         using var transaction = await db.Database.BeginTransactionAsync(token);
         var chore = await db.Chores
-            .Include(ch => ch.Members)
-            .Include(ch => ch.QueueItems)
             .FirstOrDefaultAsync(token);
 
-        if (chore is null) return false;
-        if (chore.IsPaused) return false;
-        if (chore.Members.FirstOrDefault(m => m.UserId == userId) is null)
-            return false;
+        var result = await ExistsAndSufficientPrivilegesAsync
+            (choreId, userId, Privileges.Member);
+        if (!result.IsSuccess) return result;
+        Debug.Assert(chore is not null);
+        if (chore.IsPaused) return Result
+            .Fail(ServiceError.Conflict, "Can't complete chores while paused");
 
-        var queueItem = chore.QueueItems.FirstOrDefault();
-        if (queueItem is null) return false;
-        if (queueItem.AssignedMemberId != userId) return false; //maybe allow admins to complete instead?
-        if (queueItem.ScheduledDate + chore.Duration < DateTime.UtcNow)
-            return false;
+        var queueItem = db.ChoreQueue
+            .Where(q => q.ChoreId == choreId)
+            .Where(q => q.AssignedMemberId == userId);
+        if (!await queueItem.AnyAsync(token))
+            return Result.Forbidden();
+        if (await queueItem
+                .Where(q => q.ScheduledDate < DateTime.UtcNow)
+                .ExecuteDeleteAsync(token) == 0)
+            return Result.Fail(ServiceError.Conflict, "Can't complete unstarted chore");
         chore.Logs.Add(new ChoreLog
         {
-            UserId = queueItem.AssignedMemberId,
+            UserId = userId,
             CompletedAt = DateTime.UtcNow,
             Status = Shared.Database.Enums.ChoreStatus.Completed,
             ChoreId = chore.Id,
             Duration = chore.Duration,
         });
-        chore.QueueItems.Remove(queueItem);
-        await db.SaveChangesAsync(token);
 
-        var date = chore.QueueItems
-            .OrderBy(i => i.ScheduledDate)
-            .Select(i => i.ScheduledDate)
-            .LastOrDefault();
+        var dates = db.ChoreQueue
+            .Where(q => q.ChoreId == choreId)
+            .Select(q => q.ScheduledDate)
+            .OrderBy(d => d);
+
+        DateTime date = await dates.AnyAsync()
+            ? await dates.LastAsync()
+            : DateTime.UtcNow;
 
         chore.CurrentQueueMemberIdx = GetNextMemberIdx(chore);
         chore.QueueItems.Add(new ChoreQueue
@@ -257,8 +267,7 @@ public class ChoreService(Context db, CancellationToken token)
         });
         await db.SaveChangesAsync(token);
         await transaction.CommitAsync(token);
-
-        return true;
+        return Result.Success();
     }
 
     private int GetNextChoreItemIdx(Chore chore)
