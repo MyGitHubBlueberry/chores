@@ -85,15 +85,15 @@ public class ChoreService(Context db, CancellationToken token)
     public async Task<Result> UpdateDetailsAsync
         (int userId, UpdateChoreDetailsRequest request)
     {
-        var chore = await db.Chores.FindAsync(request.ChoreId);
+        var chore = await db.Chores.FindAsync(request.ChoreId, token);
         if (chore is null)
             return Result.NotFound("Chore not found");
-        if (!await db.Users.AnyAsync(u => u.Id == userId))
+        if (!await db.Users.AnyAsync(u => u.Id == userId, token))
             return Result.NotFound("User not found");
         if (!await ArePrivilegesSufficientAsync(Privileges.Admin, request.ChoreId, userId))
             return Result.Forbidden();
         if (await db.Chores.AnyAsync(ch => ch.Title == request.Title
-                    && ch.OwnerId == chore.OwnerId))
+                    && ch.OwnerId == chore.OwnerId, token))
             return Result.Fail(ServiceError.Conflict,
                     "One member can't own 2 chores with the same name");
 
@@ -113,10 +113,11 @@ public class ChoreService(Context db, CancellationToken token)
     public async Task<Result> UpdateScheduleAsync
         (int userId, UpdateChoreScheduleRequest request)
     {
+        bool shouldRegenerateQueue = false;
         var chore = await db.Chores
             .Include(ch => ch.Logs)
             .Include(ch => ch.QueueItems)
-            .FirstOrDefaultAsync(ch => ch.Id == request.ChoreId);
+            .FirstOrDefaultAsync(ch => ch.Id == request.ChoreId, token);
         if (chore is null)
             return Result.NotFound("Chore not found");
         if (!await db.Users.AnyAsync(u => u.Id == userId))
@@ -127,6 +128,20 @@ public class ChoreService(Context db, CancellationToken token)
                 && !request.Interval.HasValue
                 && !request.Duration.HasValue)
             return Result.Fail(ServiceError.InvalidInput, "Request is empty");
+        if (request.Interval.HasValue ||
+                request.Duration.HasValue)
+        {
+            if (request.Interval.HasValue)
+            {
+                chore.Interval = request.Interval.Value;
+            }
+            if (request.Duration.HasValue)
+            {
+                chore.Duration = request.Duration.Value;
+            }
+            shouldRegenerateQueue = true;
+        }
+
         if (request.EndDate.HasValue)
         {
             if (request.EndDate <= chore.StartDate)
@@ -146,18 +161,22 @@ public class ChoreService(Context db, CancellationToken token)
                             "End date can't be before previousely completed chores");
                 }
             }
-            
-            await db.ChoreQueue
-                .Where(q => q.ChoreId == request.ChoreId)
-                .Where(q => q.ScheduledDate >= request.EndDate)
-                .ExecuteDeleteAsync(token);
+
+            if (!shouldRegenerateQueue)
+            {
+                await db.ChoreQueue
+                    .Where(q => q.ChoreId == request.ChoreId)
+                    .Where(q => q.ScheduledDate >= request.EndDate)
+                    .ExecuteDeleteAsync(token);
+            }
 
             chore.EndDate = request.EndDate;
         }
-        if (request.Interval.HasValue)
-            chore.Interval = request.Interval.Value;
-        if (request.Duration.HasValue)
-            chore.Duration = request.Duration.Value;
+
+        if (shouldRegenerateQueue)
+        {
+            await RegenerateQueueAsync(request.ChoreId, userId);
+        }
 
         try
         {
@@ -171,16 +190,71 @@ public class ChoreService(Context db, CancellationToken token)
         return Result<Chore>.Success(chore);
     }
 
-    public async Task<bool> SetIsPausedAsync
-        (int userId, int choreId, bool isPaused) =>
-        await db.Chores
-            .Where(ch => ch.Id == choreId)
-            .Where(ch => ch.OwnerId == choreId
-                    || ch.Members.Any(m => m.UserId == userId && m.IsAdmin))
-            .Where(ch => ch.CurrentQueueMemberIdx.HasValue)  // don't allow empty chores to be started
-            .ExecuteUpdateAsync(setters =>
-                    setters.SetProperty(ch => ch.IsPaused, isPaused),
-                token) != 0;
+    public async Task<Result> PauseChoreAsync
+        (int userId, int choreId)
+    {
+        var chore = await db.Chores
+            .FirstOrDefaultAsync(ch => ch.Id == choreId);
+        if (chore is null)
+            return Result.NotFound("Chore not found");
+        if (!await db.Users.AnyAsync(u => u.Id == userId))
+            return Result.NotFound("User not found");
+        if (!await ArePrivilegesSufficientAsync(Privileges.Admin, choreId, userId))
+            return Result.Forbidden();
+        chore.IsPaused = true;
+
+        try
+        {
+            await db.SaveChangesAsync(token);
+        }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            return Result.Fail(ServiceError.DatabaseError, e.Message);
+        }
+        return Result.Success();
+    }
+
+    public async Task<Result> UnpauseChoreAsync
+        (int userId, int choreId)
+    {
+        var chore = await db.Chores
+            .Include(ch => ch.QueueItems)
+            .Include(ch => ch.Members)
+            .FirstOrDefaultAsync(ch => ch.Id == choreId);
+        if (chore is null)
+            return Result.NotFound("Chore not found");
+        if (!await db.Users.AnyAsync(u => u.Id == userId))
+            return Result.NotFound("User not found");
+        if (!await ArePrivilegesSufficientAsync(Privileges.Admin, choreId, userId))
+            return Result.Forbidden();
+
+        if (!chore.IsPaused) return Result.Success();
+        if (chore.EndDate.HasValue && chore.EndDate <= DateTime.UtcNow)
+            return Result.Fail(ServiceError.Conflict, "Can't unpause ended chore");
+        if (!chore.Members.Any(m => m.RotationOrder.HasValue))
+            return Result.Fail(ServiceError.Conflict, "Can't unpause chore without active members");
+        if (chore.QueueItems.Any(i => i.ScheduledDate < DateTime.UtcNow))
+        {
+            var offset = (DateTime.UtcNow - chore.QueueItems
+                .Where(q => q.ScheduledDate < DateTime.UtcNow)
+                .OrderBy(q => q.ScheduledDate)
+                .First().ScheduledDate).Duration();
+            chore.QueueItems
+                .Where(q => q.ScheduledDate < DateTime.UtcNow)
+                .ToList()
+                .ForEach(q => {q.ScheduledDate += offset;});
+        }
+
+        try
+        {
+            await db.SaveChangesAsync(token);
+        }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            return Result.Fail(ServiceError.DatabaseError, e.Message);
+        }
+        return Result.Success();
+    }
 
     public async Task<bool> CompleteChore(int userId, int choreId)
     {
@@ -762,6 +836,7 @@ public class ChoreService(Context db, CancellationToken token)
     }
 
     // discard queue changes (should remove swaps, insertions, inconsistent duration and interval times) maybe regen will be better, honestly
+    // change to take chore and user instead
     public async Task<bool> RegenerateQueueAsync(int choreId, int userId, int? daysToRegenerarate = null)
     {
         var chore = await db.Chores
