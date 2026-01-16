@@ -180,12 +180,12 @@ public class ChoreService(Context db, CancellationToken token)
         var chore = await db.Chores
             .Include(ch => ch.QueueItems)
             .FirstOrDefaultAsync(ch => ch.Id == choreId);
-        if (chore is null)
-            return Result.NotFound("Chore not found");
-        if (!await db.Users.AnyAsync(u => u.Id == userId))
-            return Result.NotFound("User not found");
-        if (!await ArePrivilegesSufficientAsync(Privileges.Admin, choreId, userId))
-            return Result.Forbidden();
+
+        var result = await ExistsAndSufficientPrivilegesAsync
+            (choreId, userId, Privileges.Admin);
+        if (!result.IsSuccess) return result;
+
+        Debug.Assert(chore is not null);
 
         if (!chore.IsPaused) return Result.Success();
 
@@ -194,26 +194,23 @@ public class ChoreService(Context db, CancellationToken token)
         if (!await db.ChoreMembers.AnyAsync(m => m.ChoreId == choreId
                     && m.RotationOrder.HasValue))
             return Result.Fail(ServiceError.Conflict, "Can't unpause chore without active members");
-        if (chore.QueueItems.Any(i => i.ScheduledDate < DateTime.UtcNow))
+
+        var minDate = await db.ChoreQueue
+            .Where(q => q.ChoreId == choreId
+                    && q.ScheduledDate < DateTime.UtcNow)
+            .MinAsync(q => (DateTime?) q.ScheduledDate, token);
+        if (minDate.HasValue) 
         {
-            var offset = (DateTime.UtcNow - chore.QueueItems
-                .Where(q => q.ScheduledDate < DateTime.UtcNow)
-                .OrderBy(q => q.ScheduledDate)
-                .First().ScheduledDate).Duration();
-            chore.QueueItems
-                .Where(q => q.ScheduledDate < DateTime.UtcNow)
-                .ToList()
-                .ForEach(q => { q.ScheduledDate += offset; });
+            var offset = DateTime.UtcNow - minDate.Value;
+            await db.ChoreQueue
+                .Where(q => q.ChoreId == choreId)
+                .ExecuteUpdateAsync(setters =>
+                        setters.SetProperty(q => q.ScheduledDate, q => q.ScheduledDate + offset),
+                            token);
         }
 
-        try
-        {
-            await db.SaveChangesAsync(token);
-        }
-        catch (Exception e) when (e is not OperationCanceledException)
-        {
-            return Result.Fail(ServiceError.DatabaseError, e.Message);
-        }
+        await db.SaveChangesAsync(token);
+
         return Result.Success();
     }
 
