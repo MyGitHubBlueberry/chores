@@ -67,8 +67,24 @@ public class DbTestChoreBuilder(Context db)
         return this;
     }
 
+    public DbTestChoreBuilder WithStartDate(DateTime startDate)
+    {
+        chore.StartDate = startDate;
+        return this;
+    }
+
+    public DbTestChoreBuilder WithEndDate(DateTime endDate)
+    {
+        chore.EndDate = endDate;
+        return this;
+    }
+
     public async Task<Chore> BuildAsync(CancellationToken token = default)
     {
+        if (chore.EndDate.HasValue)
+        {
+            Assert.True(chore.EndDate > chore.StartDate);
+        }
         if (members.Any()) {
             await db.Users.AddRangeAsync(members.Select(m => m.Item1), token);
             await db.SaveChangesAsync(token);

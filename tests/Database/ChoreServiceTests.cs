@@ -331,6 +331,52 @@ public class ChoreServiceTests
     }
 
     [Fact]
+    public async Task UpdateSchedule_Fails_If_Request_Is_Empty()
+    {
+        var (connection, options) = await DbTestHelper.SetupTestDbAsync();
+        Chore chore = await new DbTestChoreBuilder(new Context(options))
+                .WithOwner()
+                .BuildAsync();
+        var request = new UpdateChoreScheduleRequest(chore.Id);
+        using var context = new Context(options);
+
+        Assert.NotEqual(request.Interval, chore.Interval);
+        Assert.NotEqual(request.Duration, chore.Duration);
+        var responce = await new ChoreService(context, CancellationToken.None)
+                .UpdateScheduleAsync(chore.OwnerId, request);
+        Assert.False(responce.IsSuccess);
+        Assert.Equal(ServiceError.InvalidInput, responce.Error);
+        chore = await context.Chores.FirstAsync();
+        Assert.NotEqual(request.Interval, chore.Interval);
+        Assert.NotEqual(request.Duration, chore.Duration);
+    }
+
+    [Fact]
+    public async Task UpdateSchedule_Rejects_EndDate_Before_StartDate()
+    {
+        var (connection, options) = await DbTestHelper.SetupTestDbAsync();
+        Chore chore = await new DbTestChoreBuilder(new Context(options))
+                .WithOwner()
+                .WithStartDate(DateTime.UtcNow)
+                .BuildAsync();
+        var request = new UpdateChoreScheduleRequest(chore.Id, 
+                EndDate: DateTime.UtcNow.Date - TimeSpan.FromDays(1));
+        using var context = new Context(options);
+
+        Assert.NotEqual(request.EndDate, chore.EndDate);
+        Assert.NotEqual(request.Interval, chore.Interval);
+        Assert.NotEqual(request.Duration, chore.Duration);
+        var responce = await new ChoreService(context, CancellationToken.None)
+                .UpdateScheduleAsync(chore.OwnerId, request);
+        Assert.False(responce.IsSuccess);
+        Assert.Equal(ServiceError.InvalidInput, responce.Error);
+        chore = await context.Chores.FirstAsync();
+        Assert.NotEqual(request.EndDate, chore.EndDate);
+        Assert.NotEqual(request.Interval, chore.Interval);
+        Assert.NotEqual(request.Duration, chore.Duration);
+    }
+
+    [Fact]
     public async Task UpdateSchedule_Updates_Schedule()
     {
         var (connection, options) = await DbTestHelper.SetupTestDbAsync();

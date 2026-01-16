@@ -22,7 +22,7 @@ public class Chore
     public int? CurrentQueueMemberIdx { get; set; }
 
     public DateTime StartDate { get; set; } = DateTime.UtcNow;
-    public DateTime? EndDate { get; set; } = DateTime.UtcNow;
+    public DateTime? EndDate { get; set; } = null;
     public TimeSpan Duration { get; set; } = TimeSpan.FromDays(1);
     public TimeSpan Interval { get; set; } = TimeSpan.Zero;
 
