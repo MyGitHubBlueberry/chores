@@ -10,17 +10,14 @@ using Shared.Networking;
 using Shared.Networking.Packets;
 
 namespace Database.Services;
-//todo: assigned date for chorelog?
 
+//todo: assigned date for chorelog?
 //todo: add end date to chore? and make it nullable
 //todo: add method to change intervals
 //todo: maybe move duration and interval to queue items?
-//todo: don't allow for setting starting date in past ???
-//todo: when chore is paused, keep first queueItems starting date at utcnow (maybe add background worker to add day to every queue entry when paused)
 //TODO: return responces where necesarry
 //TODO: background service who will call method to cleanup missed tasks
-//TODO: create and handle skip and swap requests
-//TODO: add verification for duration (should not be 0)
+//TODO: create and handle skip requests
 //TODO: add created and deleted logs? maybe save ownerId and chore name in logs
 public class ChoreService(Context db, CancellationToken token)
 {
@@ -218,6 +215,7 @@ public class ChoreService(Context db, CancellationToken token)
         return Result.Success();
     }
 
+    //todo: test it
     public async Task<Result> CompleteChoreAsync(int userId, int choreId)
     {
         using var transaction = await db.Database.BeginTransactionAsync(token);
@@ -270,6 +268,7 @@ public class ChoreService(Context db, CancellationToken token)
         return Result.Success();
     }
 
+    //todo: test it
     private int GetNextChoreItemIdx(Chore chore)
     {
         int idx = GetNextMemberIdx(chore) ?? -1;
@@ -299,6 +298,7 @@ public class ChoreService(Context db, CancellationToken token)
         // x, 2, 0, 1, 4, 3 5 == 5
     }
 
+    //todo: test it
     private int? GetNextMemberIdx(Chore chore, int count = 1)
     {
         Debug.Assert(count >= 1);
@@ -306,6 +306,7 @@ public class ChoreService(Context db, CancellationToken token)
         return (chore.CurrentQueueMemberIdx + count) % totalWorkers;
     }
 
+    //todo: test it
     //todo: add queue extention
     public async Task ProcessMissedChoresAsync()
     {
@@ -346,68 +347,49 @@ public class ChoreService(Context db, CancellationToken token)
     #endregion
 
     #region Member management
-    //TODO: should regenerate Queue
     //TODO: switch to add memberS maybe pass ienumerable(async) in request
-    public async Task<bool> AddMemberAsync
+    //TODO: test it better
+    public async Task<Result> AddMemberAsync
         (int requesterId, AddMemberRequest request)
     {
         var chore = await db.Chores
             .Include(ch => ch.Members)
             .Where(ch => ch.Id == request.ChoreId)
             .FirstOrDefaultAsync(token);
+        if (chore is null) return Result.NotFound("Chore not found");
 
-        if (chore is null) return false;
+        var result = await ExistsAndSufficientPrivilegesAsync
+            (request.ChoreId, requesterId, Privileges.Admin);
+        if (!result.IsSuccess) return result;
 
-        bool isOwner = chore.OwnerId == requesterId;
-        bool isAdmin = chore.Members.Any(m => m.UserId == requesterId && m.IsAdmin);
+        var userIdToAdd = db.Users
+            .FirstOrDefault(u => u.Username == request.Username)?.Id;
+        if (userIdToAdd is null) return Result.NotFound("Requested user doesn't exist");
 
-        if (!isOwner && !isAdmin) return false;
-
-        int userIdToAdd;
-        try
-        {
-            userIdToAdd = await db.Users
-                .Where(u => u.Username == request.Username)
-                .Select(u => u.Id)
-                .FirstAsync(token);
-        }
-        catch (InvalidOperationException)
-        {
-            return false;
-        }
-
-        if (chore.Members.Any(m => m.UserId == userIdToAdd)) return false;
-
-        int? finalRotationOrder = request.RotationOrder;
-        if (request.RotationOrder.HasValue)
-        {
-            var rotationMembers = chore.Members
-                .Where(m => m.RotationOrder.HasValue)
-                .OrderBy(m => m.RotationOrder)
-                .ToList();
-            var rotationOrder =
-                Math.Clamp(request.RotationOrder.Value, 0, rotationMembers.Count);
-            foreach (var existingMember in rotationMembers.Skip(rotationOrder))
-            {
-                existingMember.RotationOrder++;
-            }
-        }
+        if (chore.Members.Any(m => m.UserId == userIdToAdd)) 
+            return Result.Fail(ServiceError.Conflict, "User is already in the chore");
 
         var member = new ChoreMember
         {
-            UserId = userIdToAdd,
+            UserId = userIdToAdd.Value,
             ChoreId = request.ChoreId,
             IsAdmin = request.IsAdmin,
-            RotationOrder = finalRotationOrder
         };
 
-        chore.Members.Add(member);
-        if (!chore.CurrentQueueMemberIdx.HasValue
-                && member.RotationOrder.HasValue)
-            chore.CurrentQueueMemberIdx = 0;  // first in the queue
+        using var transaction = await db.Database.BeginTransactionAsync(token);
 
+        chore.Members.Add(member);
         await db.SaveChangesAsync(token);
-        return true;
+
+        if (request.RotationOrder.HasValue) 
+        {
+            var insertionResult = !await InsertMemberInQueueAsync
+                (chore.Id, requesterId, userIdToAdd.Value, request.RotationOrder.Value);
+            if (!insertionResult)
+                return Result.Fail(ServiceError.DatabaseError, "Something went wrong");
+        }
+        await transaction.CommitAsync(token);
+        return Result.Success();
     }
 
     //TODO: should regenerate Queue

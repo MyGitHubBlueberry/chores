@@ -422,7 +422,7 @@ public class ChoreServiceTests
         {
             var service = new ChoreService(context, CancellationToken.None);
             Assert.Single(chore.Members);
-            Assert.True(await service.AddMemberAsync(chore.OwnerId, request));
+            Assert.True((await service.AddMemberAsync(chore.OwnerId, request)).IsSuccess);
             chore = await context.Chores.FirstAsync();
             Assert.Equal(2, chore.Members.Count);
         }
