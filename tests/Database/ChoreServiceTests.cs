@@ -525,12 +525,12 @@ public class ChoreServiceTests
         using var context = new Context(options);
         var service = new ChoreService(context, CancellationToken.None);
         Assert.Single(chore.Members, m => m.IsAdmin);
-        Assert.True(await service.SetAdminStatusAsync(chore.Id,
+        Assert.True((await service.SetAdminStatusAsync(chore.Id,
                 chore.OwnerId,
                 chore.Members.Where(m => !m.IsAdmin)
                     .Select(m => m.UserId)
                     .First(),
-                true));
+                true)).IsSuccess);
         chore = await context.Chores.FirstAsync();
         Assert.Equal(2, chore.Members.Where(m => m.IsAdmin).Count());
     }
@@ -555,8 +555,8 @@ public class ChoreServiceTests
         using var context = new Context(options);
         var service = new ChoreService(context, CancellationToken.None);
         Assert.Equal(3, chore.Members.Where(m => m.IsAdmin).Count());
-        Assert.False(await service
-                .SetAdminStatusAsync(chore.Id, adminIds[0], adminIds[1], false));
+        Assert.False((await service
+                .SetAdminStatusAsync(chore.Id, adminIds[0], adminIds[1], false)).IsSuccess);
         chore = await context.Chores.FirstAsync();
         Assert.Equal(3, chore.Members.Where(m => m.IsAdmin).Count());
     }
@@ -579,8 +579,8 @@ public class ChoreServiceTests
         using var context = new Context(options);
         var service = new ChoreService(context, CancellationToken.None);
         Assert.Single(chore.Members, m => m.IsAdmin);
-        Assert.False(await service
-                .SetAdminStatusAsync(chore.Id, membersIds[0], membersIds[1], false));
+        Assert.False((await service
+                .SetAdminStatusAsync(chore.Id, membersIds[0], membersIds[1], false)).IsSuccess);
         chore = await context.Chores.FirstAsync();
         Assert.Single(chore.Members, m => m.IsAdmin);
     }
