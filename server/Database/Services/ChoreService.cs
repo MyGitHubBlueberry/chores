@@ -488,18 +488,18 @@ public class ChoreService(Context db, CancellationToken token)
                     ? DateTime.UtcNow
                     : chore.StartDate);
 
-        var queueItems = new ChoreQueue[entryCount];
-        for (int i = 0; i < queueItems.Length; i++)
+        for (int i = 0; i < entryCount; i++)
         {
-            queueItems[i] = new ChoreQueue
+            if (chore.EndDate.HasValue && date < chore.EndDate) 
+                break;
+            chore.QueueItems.Add(new ChoreQueue
             {
                 AssignedMemberId =
                     membersIdsFromRotaionOrder
                     [(newQueueMemberRotationOrderIdx + i) % memberCount],
                 ScheduledDate = date
-            };
+            });
             date += chore.Interval + chore.Duration;
-            chore.QueueItems.Add(queueItems[i]);
         }
         await db.SaveChangesAsync(token);
         return Result.Success();
@@ -575,6 +575,8 @@ public class ChoreService(Context db, CancellationToken token)
         if (member is null) return Result.NotFound("Member not found");
         if (chore.StartDate > entry.ScheduledDate)
             return Result.Fail(ServiceError.InvalidInput, "Can't add queue entry in the past");
+        if (chore.EndDate < entry.ScheduledDate)
+            return Result.Fail(ServiceError.InvalidInput, "Can't add queue entry after chore end");
 
         int rotationMemberCount = chore.Members
             .Where(m => m.RotationOrder.HasValue).Count();
@@ -585,19 +587,23 @@ public class ChoreService(Context db, CancellationToken token)
             await db.SaveChangesAsync(token);
             return Result.Success();
         }
-        ChoreQueue? lastEntry = chore.QueueItems
-            .Where(q => q.ScheduledDate < entry.ScheduledDate)
-            .FirstOrDefault();
 
-        if (lastEntry is not null)
+        //ensures interval for the previous entry
+        var prevDates = chore.QueueItems
+            .Select(q => q.ScheduledDate)
+            .Where(d => d < entry.ScheduledDate)
+            .Order();
+        if (prevDates.Any())
         {
-            DateTime reservedTimeForNextChore = lastEntry.ScheduledDate
+            DateTime reservedTimeForNextChore = prevDates.Last()
                 + chore.Duration + chore.Interval;
             if (reservedTimeForNextChore > entry.ScheduledDate)
             {
                 entry.ScheduledDate = reservedTimeForNextChore;
             }
         }
+
+        //ensures interval for the post entries
         var afterItems = chore.QueueItems
             .Where(q => q.ScheduledDate >= entry.ScheduledDate)
             .OrderBy(q => q.ScheduledDate);
@@ -613,8 +619,12 @@ public class ChoreService(Context db, CancellationToken token)
                 }
             }
         }
+        chore.QueueItems
+            .Where(i => i.ScheduledDate > chore.EndDate)
+            .ToList()
+            .ForEach(i => chore.QueueItems.Remove(i));
+        RemoveTrailingQueueEntries(chore);
         chore.QueueItems.Add(entry);
-
         await db.SaveChangesAsync(token);
         return Result.Success();
     }
@@ -675,9 +685,16 @@ public class ChoreService(Context db, CancellationToken token)
         }
 
         itemsToAdd.ForEach(i => chore.QueueItems.Add(i));
+        RemoveTrailingQueueEntries(chore);
         await db.SaveChangesAsync(token);
         return Result.Success();
     }
+
+    private void RemoveTrailingQueueEntries(Chore chore) => 
+        chore.QueueItems
+            .Where(i => i.ScheduledDate > chore.EndDate)
+            .ToList()
+            .ForEach(i => chore.QueueItems.Remove(i));
 
     public async Task<Result> DeleteQueueEntryAsync
         (int choreId, int requesterId, ChoreQueue entry)
