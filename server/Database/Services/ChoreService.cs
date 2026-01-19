@@ -152,7 +152,7 @@ public class ChoreService(Context db, CancellationToken token)
 
         if (shouldRegenerateQueue)
         {
-            await RegenerateQueueAsync(request.ChoreId, userId);
+            await RegenerateQueueAsync(chore);
         }
 
         await db.SaveChangesAsync(token);
@@ -570,9 +570,9 @@ public class ChoreService(Context db, CancellationToken token)
         if (a is null || b is null)
             return Result.NotFound("Member not found");
         if (!a.RotationOrder.HasValue
-            || !b.RotationOrder.HasValue) 
+            || !b.RotationOrder.HasValue)
             return Result.Fail(ServiceError.InvalidInput, "One of members misses rotation order");
-        if (userBId == userAId) 
+        if (userBId == userAId)
             return Result.Fail(ServiceError.Conflict, "Can't swap with yourself");
 
         if (chore.QueueItems.Count != 0)
@@ -609,7 +609,7 @@ public class ChoreService(Context db, CancellationToken token)
         if (chore is null) return Result.NotFound("Chore not found");
         var member = chore.Members.FirstOrDefault(m => m.UserId == entry.AssignedMemberId);
         if (member is null) return Result.NotFound("Member not found");
-        if (chore.StartDate > entry.ScheduledDate) 
+        if (chore.StartDate > entry.ScheduledDate)
             return Result.Fail(ServiceError.InvalidInput, "Can't add queue entry in the past");
 
         int rotationMemberCount = chore.Members
@@ -808,7 +808,8 @@ public class ChoreService(Context db, CancellationToken token)
 
     // discard queue changes (should remove swaps, insertions, inconsistent duration and interval times) maybe regen will be better, honestly
     // change to take chore and user instead
-    public async Task<Result> RegenerateQueueAsync(int choreId, int userId, int? daysToRegenerarate = null)
+    public async Task<Result> RegenerateQueueAsync
+        (int choreId, int userId)
     {
         var chore = await db.Chores
             .Include(ch => ch.QueueItems)
@@ -816,18 +817,22 @@ public class ChoreService(Context db, CancellationToken token)
             .FirstOrDefaultAsync(token);
         if (chore is null) return Result.NotFound("Chore not found");
 
-        // using var transaction = await db.Database.BeginTransactionAsync(token);
+        using var transaction = await db.Database.BeginTransactionAsync(token);
+        await RegenerateQueueAsync(chore);
+        await transaction.CommitAsync(token);
+        return Result.Success();
+    }
+
+    private async Task<Result> RegenerateQueueAsync(Chore chore)
+    {
+        int queueCount = chore.QueueItems.Count;
         chore.QueueItems.Clear();
         await db.SaveChangesAsync(token);
-        daysToRegenerarate = daysToRegenerarate is null
-            ? DateTime.DaysInMonth(DateTime.UtcNow.Year, DateTime.UtcNow.Month)
-            : daysToRegenerarate;
-        var extentionResult = await ExtendQueueFromDaysAsync(choreId, daysToRegenerarate.Value);
+        var extentionResult = await ExtendQueueFromEntryCountAsync(chore, queueCount);
         if (!extentionResult.IsSuccess)
         {
             return extentionResult;
         }
-        // await transaction.CommitAsync(token);
         return Result.Success();
     }
     #endregion

@@ -1192,7 +1192,7 @@ public class ChoreServiceTests
                         ScheduledDate = chore.StartDate + chore.Interval,
                     })).IsSuccess);
         Assert.NotEqual(initialQueueItems, chore.QueueItems.OrderBy(i => i.ScheduledDate));
-        Assert.True((await service.RegenerateQueueAsync(chore.Id, chore.OwnerId, initialQueueItems.Count())).IsSuccess);
+        Assert.True((await service.RegenerateQueueAsync(chore.Id, chore.OwnerId)).IsSuccess);
         Assert.Equal(initialQueueItems
                     .Select(i => i.AssignedMemberId),
                 chore.QueueItems
