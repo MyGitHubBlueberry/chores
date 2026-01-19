@@ -759,8 +759,8 @@ public class ChoreServiceTests
         Chore chore = await new DbTestChoreBuilder(context)
             .WithOwner()
             .BuildAsync();
-        Assert.False(await new ChoreService(context, CancellationToken.None)
-                .SwapQueueItemsAsync(chore.Id, chore.OwnerId, queueItemAId, queueItemBId));
+        Assert.False((await new ChoreService(context, CancellationToken.None)
+                .SwapQueueItemsAsync(chore.Id, chore.OwnerId, queueItemAId, queueItemBId)).IsSuccess);
     }
 
     [Fact]
@@ -795,8 +795,8 @@ public class ChoreServiceTests
         Assert.Equal(user1, orderedUsers[0]);
         Assert.Equal(user2, orderedUsers[1]);
         var queueItemIds = chore.QueueItems.Take(2).Select(q => q.Id).ToArray();
-        Assert.True(await service
-                .SwapQueueItemsAsync(chore.Id, chore.OwnerId, queueItemIds[0], queueItemIds[1]));
+        Assert.True((await service
+                .SwapQueueItemsAsync(chore.Id, chore.OwnerId, queueItemIds[0], queueItemIds[1])).IsSuccess);
         orderedUsers = users
             .Join(chore.QueueItems,
                     user => user.Id,
@@ -841,9 +841,9 @@ public class ChoreServiceTests
             Assert.Empty(chore.QueueItems);
             Assert.Equal(members.Length, chore.Members
                     .Where(m => m.RotationOrder.HasValue).Count());
-            Assert.True(await new ChoreService(context, CancellationToken.None)
+            Assert.True((await new ChoreService(context, CancellationToken.None)
                     .SwapMembersInQueueAsync
-                    (chore.OwnerId, chore.Id, members[0].UserId, members[1].UserId));
+                    (chore.OwnerId, chore.Id, members[0].UserId, members[1].UserId)).IsSuccess);
         }
 
         using (var context = new Context(options))
@@ -888,8 +888,8 @@ public class ChoreServiceTests
             .ToArray();
         Assert.Equivalent(new string[] { member1, member2, member1, member2 }, orderedNames);
         var queueItemIds = chore.QueueItems.Take(2).Select(q => q.Id).ToArray();
-        Assert.True(await service
-                .SwapQueueItemsAsync(chore.Id, chore.OwnerId, queueItemIds[0], queueItemIds[1]));
+        Assert.True((await service
+                .SwapQueueItemsAsync(chore.Id, chore.OwnerId, queueItemIds[0], queueItemIds[1])).IsSuccess);
         orderedNames = chore.QueueItems
             .Join(users,
                     q => q.AssignedMemberId,
@@ -912,12 +912,12 @@ public class ChoreServiceTests
             .WithDuration(TimeSpan.FromDays(1))
             .BuildAsync();
         Assert.Empty(chore.QueueItems);
-        Assert.True(await service.InsertQueueEntryAsync(chore.Id, chore.OwnerId,
+        Assert.True((await service.InsertQueueEntryAsync(chore.Id, chore.OwnerId,
                 new ChoreQueue
                 {
                     AssignedMemberId = chore.OwnerId,
                     ScheduledDate = DateTime.UtcNow
-                }));
+                })).IsSuccess);
         Assert.Single(chore.QueueItems);
         Assert.Equal(chore.OwnerId, chore.QueueItems.First().AssignedMemberId);
     }
@@ -981,10 +981,10 @@ public class ChoreServiceTests
         var days = 4;
         var lastRotationPosition = chore.Members.Where(m => m.RotationOrder.HasValue).Count();
         Assert.True((await service.ExtendQueueAsync(chore.Id, days)).IsSuccess);
-        Assert.True(await service.InsertMemberInQueueAsync(chore.Id,
+        Assert.True((await service.InsertMemberInQueueAsync(chore.Id,
                     chore.OwnerId,
                     users.First(u => u.Username == "member3").Id,
-                    lastRotationPosition));
+                    lastRotationPosition)).IsSuccess);
         var orderedNames = chore.QueueItems
             .Join(users,
                     q => q.AssignedMemberId,
@@ -1019,8 +1019,8 @@ public class ChoreServiceTests
                 .Where(u => u.Id == i.AssignedMemberId
                     && u.Username == "member2").Any());
         Assert.Single(member2Entries);
-        Assert.True(await service
-            .DeleteQueueEntryAsync(chore.Id, chore.OwnerId, member2Entries.First()));
+        Assert.True((await service
+            .DeleteQueueEntryAsync(chore.Id, chore.OwnerId, member2Entries.First())).IsSuccess);
         chore = await context.Chores.FirstAsync();
         Assert.Empty(member2Entries);
     }
@@ -1045,12 +1045,12 @@ public class ChoreServiceTests
         var timeBetweenChores = chore.Duration + chore.Interval;
         var dates = chore.QueueItems.Select(i => i.ScheduledDate).OrderBy(d => d).Take(2).ToArray();
         Assert.Equal(timeBetweenChores, (dates[0] - dates[1]).Duration());
-        Assert.True(await service
+        Assert.True((await service
             .DeleteQueueEntryAsync(chore.Id, chore.OwnerId,
                 chore.QueueItems
                 .OrderBy(i => i.ScheduledDate)
                 .Skip(1)
-                .First()));
+                .First())).IsSuccess);
         chore = await context.Chores.FirstAsync();
         Assert.Equal(2, chore.QueueItems.Count);
         dates = chore.QueueItems.Select(i => i.ScheduledDate).ToArray();
@@ -1083,9 +1083,9 @@ public class ChoreServiceTests
                 (user, item) => new { Username = user.Username, Date = item.ScheduledDate });
         Assert.True(userToBeRemovedExists.Any());
         Assert.True(
-                await service.DeleteMemberFromQueueAsync(chore.Id,
+                (await service.DeleteMemberFromQueueAsync(chore.Id,
                     chore.OwnerId,
-                    userToBeRemoved.Id));
+                    userToBeRemoved.Id)).IsSuccess);
         Assert.False(userToBeRemovedExists.Any());
     }
 
@@ -1109,9 +1109,9 @@ public class ChoreServiceTests
         var days = 10;
         Assert.True((await service.ExtendQueueAsync(chore.Id, days)).IsSuccess);
         Assert.True(
-                await service.DeleteMemberFromQueueAsync(chore.Id,
+                (await service.DeleteMemberFromQueueAsync(chore.Id,
                     chore.OwnerId,
-                    chore.Members.First(u => u.RotationOrder.HasValue).UserId));
+                    chore.Members.First(u => u.RotationOrder.HasValue).UserId)).IsSuccess);
 
         var orderedQueueItemDates = chore.QueueItems
             .Select(i => i.ScheduledDate)
@@ -1139,7 +1139,7 @@ public class ChoreServiceTests
             .WithInterval(TimeSpan.FromHours(12))
             .BuildAsync();
 
-        Assert.True(await service.RegenerateQueueAsync(chore.Id, chore.OwnerId));
+        Assert.True((await service.RegenerateQueueAsync(chore.Id, chore.OwnerId)).IsSuccess);
         Assert.NotEmpty(chore.QueueItems);
     }
 
@@ -1153,7 +1153,7 @@ public class ChoreServiceTests
             .WithOwner()
             .BuildAsync();
 
-        Assert.False(await service.RegenerateQueueAsync(chore.Id, chore.OwnerId));
+        Assert.False((await service.RegenerateQueueAsync(chore.Id, chore.OwnerId)).IsSuccess);
         Assert.Empty(chore.QueueItems);
     }
 
@@ -1175,14 +1175,14 @@ public class ChoreServiceTests
             .BuildAsync();
         Assert.True((await service.ExtendQueueAsync(chore.Id, 10)).IsSuccess);
         var initialQueueItems = chore.QueueItems.OrderBy(i => i.ScheduledDate).ToArray();
-        Assert.True(await service.SwapQueueItemsAsync(chore.Id,
+        Assert.True((await service.SwapQueueItemsAsync(chore.Id,
                     chore.OwnerId,
                     chore.QueueItems.First().Id,
-                    chore.QueueItems.Skip(1).First().Id));
-        Assert.True(await service.DeleteQueueEntryAsync(chore.Id,
+                    chore.QueueItems.Skip(1).First().Id)).IsSuccess);
+        Assert.True((await service.DeleteQueueEntryAsync(chore.Id,
                     chore.OwnerId,
-                    chore.QueueItems.Last()));
-        Assert.True(await service.InsertQueueEntryAsync(chore.Id,
+                    chore.QueueItems.Last())).IsSuccess);
+        Assert.True((await service.InsertQueueEntryAsync(chore.Id,
                     chore.OwnerId,
                     new ChoreQueue
                     {
@@ -1190,9 +1190,9 @@ public class ChoreServiceTests
                             .Where(m => m.RotationOrder.HasValue)
                             .Last().UserId,
                         ScheduledDate = chore.StartDate + chore.Interval,
-                    }));
+                    })).IsSuccess);
         Assert.NotEqual(initialQueueItems, chore.QueueItems.OrderBy(i => i.ScheduledDate));
-        Assert.True(await service.RegenerateQueueAsync(chore.Id, chore.OwnerId, initialQueueItems.Count()));
+        Assert.True((await service.RegenerateQueueAsync(chore.Id, chore.OwnerId, initialQueueItems.Count())).IsSuccess);
         Assert.Equal(initialQueueItems
                     .Select(i => i.AssignedMemberId),
                 chore.QueueItems
