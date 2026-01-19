@@ -161,6 +161,7 @@ public class ChoreService(Context db, CancellationToken token)
         return Result<Chore>.Success(chore);
     }
 
+    //todo: test it
     public async Task<Result> PauseChoreAsync
         (int userId, int choreId)
     {
@@ -175,6 +176,7 @@ public class ChoreService(Context db, CancellationToken token)
             : Result.Fail(ServiceError.DatabaseError, "Failed to pause the chore");
     }
 
+    //todo: test it
     public async Task<Result> UnpauseChoreAsync
         (int userId, int choreId)
     {
@@ -194,15 +196,16 @@ public class ChoreService(Context db, CancellationToken token)
             return Result.Fail(ServiceError.Conflict, "Can't unpause ended chore");
         if (!await db.ChoreMembers.AnyAsync(m => m.ChoreId == choreId
                     && m.RotationOrder.HasValue))
-            return Result.Fail(ServiceError.Conflict, "Can't unpause chore without active members");
+            return Result.Fail(ServiceError.InvalidInput, "Can't unpause chore without active members");
 
-        var minDate = await db.ChoreQueue
+        var dates = db.ChoreQueue
             .Where(q => q.ChoreId == choreId
                     && q.ScheduledDate < DateTime.UtcNow)
-            .MinAsync(q => (DateTime?)q.ScheduledDate, token);
-        if (minDate.HasValue)
+            .Select(q => q.ScheduledDate);
+        if (await dates.AnyAsync(token))
         {
-            var offset = DateTime.UtcNow - minDate.Value;
+            var minDate = await dates.Order().FirstAsync(token);
+            var offset = DateTime.UtcNow - minDate;
             await db.ChoreQueue
                 .Where(q => q.ChoreId == choreId)
                 .ExecuteUpdateAsync(setters =>
@@ -216,6 +219,7 @@ public class ChoreService(Context db, CancellationToken token)
     }
 
     //todo: test it
+    //todo: should extend
     public async Task<Result> CompleteChoreAsync(int userId, int choreId)
     {
         using var transaction = await db.Database.BeginTransactionAsync(token);
@@ -257,45 +261,11 @@ public class ChoreService(Context db, CancellationToken token)
             : DateTime.UtcNow;
 
         chore.CurrentQueueMemberIdx = GetNextMemberIdx(chore);
-        chore.QueueItems.Add(new ChoreQueue
-        {
-            ChoreId = chore.Id,
-            ScheduledDate = date + chore.Duration + chore.Interval,
-            AssignedMemberId = GetNextChoreItemIdx(chore),
-        });
+        await ExtendQueueFromEntryCountAsync(chore, 1);
+
         await db.SaveChangesAsync(token);
         await transaction.CommitAsync(token);
         return Result.Success();
-    }
-
-    //todo: test it
-    private int GetNextChoreItemIdx(Chore chore)
-    {
-        int idx = GetNextMemberIdx(chore) ?? -1;
-        Debug.Assert(idx != -1);
-        int totalWorkers = chore.Members.Count(m => m.RotationOrder.HasValue);
-        int countInQueue = chore.QueueItems.Count;
-        return (idx + countInQueue) % totalWorkers;
-        // 1, 2, 3, 0, 1, .... 2 //id = 1
-        // 1, 2, 3, 1, 0, .... 2
-        // x, 2, 3, 1, 0, .... 2 // 4 total
-        // x, 2, 3, 1, 0, (next id + count in q) % total workers.... 3 // 4 total 
-        // x, 2, 3, 1, 0, (2 + 4) % 4
-        // x, 2, 3, 1, 0, 2 == 2
-
-        // 3, 4, 0, 1, 2 ... 3 //id = 3
-        // 3, 4, 2, 0, 1 ... 3
-        // x, 4, 2, 0, 1 ... 3
-        // x, 4, 2, 0, 1, (next id + count in q) % total workers ... 3
-        // x, 4, 2, 0, 1, (4 + 4) % 5 
-        // x, 4, 2, 0, 1, 3 == 3
-
-        // count in q % total workers 
-        // 6, 0, 1, 2, 3, 4, ... 5
-        // 6, 2, 0, 1, 4, 3
-        // x, 2, 0, 1, 4, 3 (next id + count in q) % total workers 
-        // x, 2, 0, 1, 4, 3 (0 + 5) % 7
-        // x, 2, 0, 1, 4, 3 5 == 5
     }
 
     //todo: test it
@@ -307,7 +277,6 @@ public class ChoreService(Context db, CancellationToken token)
     }
 
     //todo: test it
-    //todo: add queue extention
     public async Task ProcessMissedChoresAsync()
     {
         var missedItems = await db.ChoreQueue
@@ -336,10 +305,11 @@ public class ChoreService(Context db, CancellationToken token)
             .Select(i => (i.First().Chore, i.Count()))
             .Distinct()
             .ToList()
-            .ForEach(tuple =>
+            .ForEach(async tuple =>
             {
                 var (chore, missedItemCount) = tuple;
                 chore!.CurrentQueueMemberIdx = GetNextMemberIdx(chore, missedItemCount);
+                await ExtendQueueFromEntryCountAsync(chore, missedItemCount);
             });
 
         await db.SaveChangesAsync(token);

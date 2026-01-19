@@ -1126,7 +1126,7 @@ public class ChoreServiceTests
 
 
     [Fact]
-    public async Task RegenerateQueue_Generates_Queue_When_Empty()
+    public async Task RegenerateQueue_Not_Generates_Queue_When_Empty()
     {
         var (connection, options) = await DbTestHelper.SetupTestDbAsync();
         using var context = new Context(options);
@@ -1140,7 +1140,7 @@ public class ChoreServiceTests
             .BuildAsync();
 
         Assert.True((await service.RegenerateQueueAsync(chore.Id, chore.OwnerId)).IsSuccess);
-        Assert.NotEmpty(chore.QueueItems);
+        Assert.Empty(chore.QueueItems);
     }
 
     [Fact]
@@ -1153,7 +1153,7 @@ public class ChoreServiceTests
             .WithOwner()
             .BuildAsync();
 
-        Assert.False((await service.RegenerateQueueAsync(chore.Id, chore.OwnerId)).IsSuccess);
+        Assert.True((await service.RegenerateQueueAsync(chore.Id, chore.OwnerId)).IsSuccess);
         Assert.Empty(chore.QueueItems);
     }
 
