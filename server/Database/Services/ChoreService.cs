@@ -11,14 +11,13 @@ using Shared.Networking.Packets;
 
 namespace Database.Services;
 
-//todo: assigned date for chorelog?
-//todo: add end date to chore? and make it nullable
 //todo: add method to change intervals
-//todo: maybe move duration and interval to queue items?
-//TODO: return responces where necesarry
-//TODO: background service who will call method to cleanup missed tasks
 //TODO: create and handle skip requests
+//todo: assigned date for chorelog?
 //TODO: add created and deleted logs? maybe save ownerId and chore name in logs
+
+//todo: maybe move duration and interval to queue items?
+//TODO: background service who will call method to cleanup missed tasks
 public class ChoreService(Context db, CancellationToken token)
 {
     #region Core chore management
@@ -219,7 +218,6 @@ public class ChoreService(Context db, CancellationToken token)
     }
 
     //todo: test it
-    //todo: should extend
     public async Task<Result> CompleteChoreAsync(int userId, int choreId)
     {
         using var transaction = await db.Database.BeginTransactionAsync(token);
@@ -507,7 +505,6 @@ public class ChoreService(Context db, CancellationToken token)
         return Result.Success();
     }
 
-    // swap (permanent for member swapping and swap at specific place once when requested)
     public async Task<Result> SwapQueueItemsAsync
         (int choreId, int userId, int queueItemAId, int queueItemBId)
     {
@@ -565,9 +562,6 @@ public class ChoreService(Context db, CancellationToken token)
         return Result.Success();
     }
 
-    // insert (insert new queue item or insert member in queue) (don't forget to shift dates)
-    // do not allow overlap
-    // add offset
     public async Task<Result> InsertQueueEntryAsync
         (int choreId, int requesterId, ChoreQueue entry)
     {
@@ -625,7 +619,6 @@ public class ChoreService(Context db, CancellationToken token)
         return Result.Success();
     }
 
-    // start with current idx in chore and go with chunks from there? what about insertions and deletions though...
     public async Task<Result> InsertMemberInQueueAsync
         (int choreId, int requesterId, int memberId, int desiredOrderRotationIdx)
     {
@@ -686,7 +679,6 @@ public class ChoreService(Context db, CancellationToken token)
         return Result.Success();
     }
 
-    // delete (when removing member and when removing one queue item) ()
     public async Task<Result> DeleteQueueEntryAsync
         (int choreId, int requesterId, ChoreQueue entry)
     {
@@ -718,7 +710,6 @@ public class ChoreService(Context db, CancellationToken token)
         return Result.Success();
     }
 
-    //todo: queue member idx
     public async Task<Result> DeleteMemberFromQueueAsync
         (int choreId, int requesterId, int memberId)
     {
@@ -736,48 +727,47 @@ public class ChoreService(Context db, CancellationToken token)
         {
             chore.QueueItems.Clear();
             chore.CurrentQueueMemberIdx = null;
+            await db.SaveChangesAsync(token);
+            return Result.Success();
         }
-        else
-        {
-            TimeSpan offset = TimeSpan.Zero;
-            var orderedQueue = chore.QueueItems
+        TimeSpan offset = TimeSpan.Zero;
+        var orderedQueue = chore.QueueItems
                 .OrderBy(q => q.ScheduledDate);
-            ChoreQueue? prevDelteteMember = null;
+        ChoreQueue? prevDelteteMember = null;
 
-            foreach (var item in orderedQueue)
+        foreach (var item in orderedQueue)
+        {
+            if (prevDelteteMember is not null)
             {
-                if (prevDelteteMember is not null)
-                {
-                    offset += (item.ScheduledDate - prevDelteteMember.ScheduledDate)
-                        .Duration();
-                    prevDelteteMember = null;
-                }
-                if (item.AssignedMemberId == memberId)
-                {
-                    prevDelteteMember = item;
-                    continue;
-                }
-                item.ScheduledDate -= offset;
+                offset += (item.ScheduledDate - prevDelteteMember.ScheduledDate)
+                    .Duration();
+                prevDelteteMember = null;
             }
-
-            var members = chore.Members
-                .Where(m => m.RotationOrder.HasValue
-                    && m.RotationOrder > member.RotationOrder);
-            foreach (var m in members)
+            if (item.AssignedMemberId == memberId)
             {
-                m.RotationOrder--;
+                prevDelteteMember = item;
+                continue;
             }
-
-            db.ChoreQueue.RemoveRange(chore.QueueItems
-                    .Where(q => q.AssignedMemberId == memberId));
+            item.ScheduledDate -= offset;
         }
+
+        var members = chore.Members
+            .Where(m => m.RotationOrder.HasValue
+                && m.RotationOrder > member.RotationOrder);
+        foreach (var m in members)
+        {
+            m.RotationOrder--;
+        }
+
+        db.ChoreQueue.RemoveRange(chore.QueueItems
+                .Where(q => q.AssignedMemberId == memberId));
+
+        chore.CurrentQueueMemberIdx = orderedQueue.First().AssignedMemberId;
         member.RotationOrder = null;
         await db.SaveChangesAsync(token);
         return Result.Success();
     }
 
-    // discard queue changes (should remove swaps, insertions, inconsistent duration and interval times) maybe regen will be better, honestly
-    // change to take chore and user instead
     public async Task<Result> RegenerateQueueAsync
         (int choreId, int userId)
     {
