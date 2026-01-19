@@ -12,9 +12,12 @@ using Shared.Networking.Packets;
 namespace Database.Services;
 
 //todo: add method to change intervals
+
 //TODO: create and handle skip requests
 //todo: assigned date for chorelog?
 //TODO: add created and deleted logs? maybe save ownerId and chore name in logs
+
+//todo: split chor service into multiple files and maybe services
 
 //todo: maybe move duration and interval to queue items?
 //TODO: background service who will call method to cleanup missed tasks
@@ -490,7 +493,7 @@ public class ChoreService(Context db, CancellationToken token)
 
         for (int i = 0; i < entryCount; i++)
         {
-            if (chore.EndDate.HasValue && date < chore.EndDate) 
+            if (chore.EndDate.HasValue && date < chore.EndDate)
                 break;
             chore.QueueItems.Add(new ChoreQueue
             {
@@ -690,7 +693,7 @@ public class ChoreService(Context db, CancellationToken token)
         return Result.Success();
     }
 
-    private void RemoveTrailingQueueEntries(Chore chore) => 
+    private void RemoveTrailingQueueEntries(Chore chore) =>
         chore.QueueItems
             .Where(i => i.ScheduledDate > chore.EndDate)
             .ToList()
@@ -812,6 +815,27 @@ public class ChoreService(Context db, CancellationToken token)
         }
         return Result.Success();
     }
+
+    //todo: test it
+    public async Task<Result> ChangeQueueEntryIntervalAsync
+        (int choreId, int requesterId, int queueEntryId, TimeSpan interval)
+    {
+        var check = await ExistsAndSufficientPrivilegesAsync
+            (choreId, requesterId, Privileges.Admin);
+        if (!check.IsSuccess) return check;
+        await db.ChoreQueue
+            .Where(q => q.ChoreId == choreId)
+            .OrderBy(q => q.ScheduledDate)
+            .SkipWhile(q => q.Id != queueEntryId)
+            .Skip(1)
+            .ForEachAsync(q => q.ScheduledDate += interval, token);
+        RemoveTrailingQueueEntries(await db.Chores
+                .Include(ch => ch.QueueItems)
+                .FirstAsync(ch => ch.Id == choreId, token));
+        await db.SaveChangesAsync(token);
+        return Result.Success();
+    }
+
     #endregion
 
     private async Task<bool> ArePrivilegesSufficientAsync
