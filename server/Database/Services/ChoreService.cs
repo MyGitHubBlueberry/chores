@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading;
@@ -8,24 +7,26 @@ using Microsoft.EntityFrameworkCore;
 using Shared.Database.Models;
 using Shared.Networking;
 using Shared.Networking.Packets;
+using Privileges = Database.Services.ChorePermissionService.Privileges;
 
 namespace Database.Services;
+//todo: needs shared methods
+//todo: needs queue
 
-//todo: add method to change intervals
-
-//TODO: create and handle skip requests
 //todo: assigned date for chorelog?
-//TODO: add created and deleted logs? maybe save ownerId and chore name in logs
+//TODO: add created and deleted logs as well as logs for other actions
+//Todo: maybe save ownerId and chore name in logs as well as who did action
+//TODO: create and handle skip requests (maybe add skip log option for deleting queue entry)
 
 //todo: split chor service into multiple files and maybe services
 
 //todo: maybe move duration and interval to queue items?
 //TODO: background service who will call method to cleanup missed tasks
-public class ChoreService(Context db, CancellationToken token)
+public class ChoreService(Context db, ChoreQueueService qServ, ChorePermissionService pServ)
 {
     #region Core chore management
     public async Task<Result<Chore>> CreateChoreAsync
-        (int ownerId, CreateChoreRequest request)
+        (int ownerId, CreateChoreRequest request, CancellationToken token = default)
     {
         if (!await db.Users.AnyAsync(u => u.Id == ownerId, token))
             return Result<Chore>.NotFound("User not found");
@@ -57,9 +58,10 @@ public class ChoreService(Context db, CancellationToken token)
         return Result<Chore>.Success(chore);
     }
 
-    public async Task<Result> DeleteChoreAsync(int userId, int choreId)
+    public async Task<Result> DeleteChoreAsync
+        (int userId, int choreId, CancellationToken token = default)
     {
-        var result = await ExistsAndSufficientPrivilegesAsync(choreId, userId, Privileges.Owner);
+        var result = await pServ.ExistsAndSufficientPrivilegesAsync(choreId, userId, Privileges.Owner);
         if (!result.IsSuccess) return result;
         return await db.Chores
             .Where(ch => ch.Id == choreId)
@@ -69,9 +71,9 @@ public class ChoreService(Context db, CancellationToken token)
     }
 
     public async Task<Result> UpdateDetailsAsync
-        (int userId, UpdateChoreDetailsRequest request)
+        (int userId, UpdateChoreDetailsRequest request, CancellationToken token = default)
     {
-        var result = await ExistsAndSufficientPrivilegesAsync
+        var result = await pServ.ExistsAndSufficientPrivilegesAsync
             (request.ChoreId, userId, Privileges.Owner);
         if (!result.IsSuccess)
             return result;
@@ -93,13 +95,13 @@ public class ChoreService(Context db, CancellationToken token)
     }
 
     public async Task<Result> UpdateScheduleAsync
-        (int userId, UpdateChoreScheduleRequest request)
+        (int userId, UpdateChoreScheduleRequest request, CancellationToken token = default)
     {
         bool shouldRegenerateQueue = false;
         var chore = await db.Chores
             .FirstOrDefaultAsync(ch => ch.Id == request.ChoreId, token);
 
-        var result = await ExistsAndSufficientPrivilegesAsync
+        var result = await pServ.ExistsAndSufficientPrivilegesAsync
             (request.ChoreId, userId, Privileges.Owner);
         if (!result.IsSuccess) return result;
         Debug.Assert(chore is not null);
@@ -154,7 +156,7 @@ public class ChoreService(Context db, CancellationToken token)
 
         if (shouldRegenerateQueue)
         {
-            await RegenerateQueueAsync(chore);
+            await qServ.RegenerateQueueAsync(chore, token);
         }
 
         await db.SaveChangesAsync(token);
@@ -165,9 +167,9 @@ public class ChoreService(Context db, CancellationToken token)
 
     //todo: test it
     public async Task<Result> PauseChoreAsync
-        (int userId, int choreId)
+        (int userId, int choreId, CancellationToken token = default)
     {
-        var result = await ExistsAndSufficientPrivilegesAsync
+        var result = await pServ.ExistsAndSufficientPrivilegesAsync
             (choreId, userId, Privileges.Admin);
         if (!result.IsSuccess) return result;
         return (await db.Chores
@@ -180,13 +182,13 @@ public class ChoreService(Context db, CancellationToken token)
 
     //todo: test it
     public async Task<Result> UnpauseChoreAsync
-        (int userId, int choreId)
+        (int userId, int choreId, CancellationToken token = default)
     {
         var chore = await db.Chores
             .Include(ch => ch.QueueItems)
             .FirstOrDefaultAsync(ch => ch.Id == choreId);
 
-        var result = await ExistsAndSufficientPrivilegesAsync
+        var result = await pServ.ExistsAndSufficientPrivilegesAsync
             (choreId, userId, Privileges.Admin);
         if (!result.IsSuccess) return result;
 
@@ -221,13 +223,14 @@ public class ChoreService(Context db, CancellationToken token)
     }
 
     //todo: test it
-    public async Task<Result> CompleteChoreAsync(int userId, int choreId)
+    public async Task<Result> CompleteChoreAsync
+        (int userId, int choreId, CancellationToken token = default)
     {
         using var transaction = await db.Database.BeginTransactionAsync(token);
         var chore = await db.Chores
             .FirstOrDefaultAsync(token);
 
-        var result = await ExistsAndSufficientPrivilegesAsync
+        var result = await pServ.ExistsAndSufficientPrivilegesAsync
             (choreId, userId, Privileges.Member);
         if (!result.IsSuccess) return result;
         Debug.Assert(chore is not null);
@@ -257,12 +260,12 @@ public class ChoreService(Context db, CancellationToken token)
             .Select(q => q.ScheduledDate)
             .OrderBy(d => d);
 
-        DateTime date = await dates.AnyAsync()
-            ? await dates.LastAsync()
+        DateTime date = await dates.AnyAsync(token)
+            ? await dates.LastAsync(token)
             : DateTime.UtcNow;
 
         chore.CurrentQueueMemberIdx = GetNextMemberIdx(chore);
-        await ExtendQueueFromEntryCountAsync(chore, 1);
+        await qServ.ExtendQueueFromEntryCountAsync(chore, 1, token);
 
         await db.SaveChangesAsync(token);
         await transaction.CommitAsync(token);
@@ -270,7 +273,7 @@ public class ChoreService(Context db, CancellationToken token)
     }
 
     //todo: test it
-    private int? GetNextMemberIdx(Chore chore, int count = 1)
+    private int? GetNextMemberIdx(Chore chore, int count = 1, CancellationToken token = default)
     {
         Debug.Assert(count >= 1);
         int totalWorkers = chore.Members.Count(m => m.RotationOrder.HasValue);
@@ -278,7 +281,7 @@ public class ChoreService(Context db, CancellationToken token)
     }
 
     //todo: test it
-    public async Task ProcessMissedChoresAsync()
+    public async Task ProcessMissedChoresAsync(CancellationToken token = default)
     {
         var missedItems = await db.ChoreQueue
             .Include(q => q.Chore)
@@ -310,556 +313,12 @@ public class ChoreService(Context db, CancellationToken token)
             {
                 var (chore, missedItemCount) = tuple;
                 chore!.CurrentQueueMemberIdx = GetNextMemberIdx(chore, missedItemCount);
-                await ExtendQueueFromEntryCountAsync(chore, missedItemCount);
+                await qServ.ExtendQueueFromEntryCountAsync(chore, missedItemCount);
             });
 
         await db.SaveChangesAsync(token);
     }
     #endregion
-
-    #region Member management
-    //TODO: switch to add memberS maybe pass ienumerable(async) in request
-    //TODO: test it better
-    public async Task<Result> AddMemberAsync
-        (int requesterId, AddMemberRequest request)
-    {
-        var chore = await db.Chores
-            .Include(ch => ch.Members)
-            .Where(ch => ch.Id == request.ChoreId)
-            .FirstOrDefaultAsync(token);
-        if (chore is null) return Result.NotFound("Chore not found");
-
-        var result = await ExistsAndSufficientPrivilegesAsync
-            (request.ChoreId, requesterId, Privileges.Admin);
-        if (!result.IsSuccess) return result;
-
-        var userIdToAdd = db.Users
-            .FirstOrDefault(u => u.Username == request.Username)?.Id;
-        if (userIdToAdd is null) return Result.NotFound("Requested user doesn't exist");
-
-        if (chore.Members.Any(m => m.UserId == userIdToAdd))
-            return Result.Fail(ServiceError.Conflict, "User is already in the chore");
-
-        var member = new ChoreMember
-        {
-            UserId = userIdToAdd.Value,
-            ChoreId = request.ChoreId,
-            IsAdmin = request.IsAdmin,
-        };
-
-        using var transaction = await db.Database.BeginTransactionAsync(token);
-
-        chore.Members.Add(member);
-        await db.SaveChangesAsync(token);
-
-        if (request.RotationOrder.HasValue)
-        {
-            var insertionResult = !(await InsertMemberInQueueAsync
-                (chore.Id, requesterId, userIdToAdd.Value, request.RotationOrder.Value)).IsSuccess;
-            if (!insertionResult)
-                return Result.Fail(ServiceError.DatabaseError, "Something went wrong");
-        }
-        await transaction.CommitAsync(token);
-        return Result.Success();
-    }
-
-    public async Task<Result> DeleteMemberAsync
-        (int choreId, int requesterId, int targetUserId)
-    {
-        var chore = await db.Chores
-            .Include(c => c.Members)
-            .FirstOrDefaultAsync(c => c.Id == choreId, token);
-
-        if (chore is null) return Result.NotFound("Chore not found");
-
-        bool isOwner = chore.OwnerId == requesterId;
-        bool isAdmin = chore.Members.Any(m => m.UserId == requesterId && m.IsAdmin);
-        bool isSelf = requesterId == targetUserId;
-
-        if (!isOwner && !isAdmin && !isSelf) return Result.Forbidden();
-        if (targetUserId == chore.OwnerId && !isOwner) return Result.Forbidden();
-
-        var targetMember = chore.Members.FirstOrDefault(m => m.UserId == targetUserId);
-        if (targetMember is null) return Result.NotFound("Member not found");
-
-        if (!isOwner && isAdmin && targetMember.IsAdmin && !isSelf)
-            return Result.Forbidden("Admins can't remove other admins");
-
-        if (isOwner && isSelf)
-            return await DeleteChoreAsync(choreId, requesterId);
-
-        if (targetMember.RotationOrder.HasValue)
-        {
-            var rotationList = chore.Members
-                .Where(m => m.RotationOrder.HasValue
-                        && m.RotationOrder > targetMember.RotationOrder)
-                .OrderBy(m => m.RotationOrder);
-
-
-            foreach (var member in rotationList)
-            {
-                member.RotationOrder--;
-            }
-        }
-
-        await DeleteMemberFromQueueAsync(choreId, chore.OwnerId, targetUserId);
-        chore.Members.Remove(targetMember);
-
-        await db.SaveChangesAsync(token);
-        return Result.Success();
-    }
-
-    public async Task<Result> SetAdminStatusAsync
-        (int choreId, int requesterId, int targetId, bool isAdmin)
-    {
-        if (requesterId == targetId)
-            return Result.Fail(ServiceError.Conflict, "Can't change admin status of yourself");
-
-        var chore = await db.Chores
-            .Where(ch => ch.Id == choreId)
-            .Include(ch => ch.Members)
-            .FirstOrDefaultAsync(token);
-
-        if (chore is null) return Result.NotFound("Chore not found");
-        if (chore.OwnerId == targetId)
-            return Result.Fail(ServiceError.InvalidInput, "Owner admin status can't be changed");
-
-        var requester = chore.Members.FirstOrDefault(m => m.UserId == requesterId);
-        var target = chore.Members.FirstOrDefault(m => m.UserId == targetId);
-        bool isRequesterOwner = chore.OwnerId == requesterId;
-
-        if (requester is null || target is null) return Result.NotFound("User not found");
-
-        if ((target.IsAdmin && isRequesterOwner)
-                || (!target.IsAdmin && requester.IsAdmin))
-        {
-            target.IsAdmin = isAdmin;
-            await db.SaveChangesAsync(token);
-            return Result.Success();
-        }
-        return Result.Forbidden();
-    }
-    #endregion
-
-    #region QueueManagement
-    public async Task<Result> ExtendQueueFromDaysAsync(int choreId, int days)
-    {
-        if (days <= 0)
-            return Result.Fail(ServiceError.InvalidInput, "Days chould be positive");
-        var chore = await db.Chores
-            .Include(ch => ch.Members)
-            .Where(ch => ch.Id == choreId)
-            .FirstOrDefaultAsync(token);
-        if (chore is null)
-            return Result.NotFound("Chore not found");
-        TimeSpan durationToCover = TimeSpan.FromDays(days);
-        int totalItems = int
-            .Max(1, (int)((durationToCover - chore.Duration) / (chore.Duration + chore.Interval) + 1));
-        return await ExtendQueueFromEntryCountAsync(chore, totalItems);
-    }
-
-    public async Task<Result> ExtendQueueFromEntryCountAsync(int choreId, int entryCount)
-    {
-        if (entryCount <= 0)
-            return Result.Fail(ServiceError.InvalidInput, "Entry count should be positive");
-        var chore = await db.Chores
-            .Include(ch => ch.Members)
-            .Where(ch => ch.Id == choreId)
-            .FirstOrDefaultAsync(token);
-        if (chore is null)
-            return Result.NotFound("Chore not found");
-        return await ExtendQueueFromEntryCountAsync(chore, entryCount);
-    }
-
-    private async Task<Result> ExtendQueueFromEntryCountAsync(Chore chore, int entryCount)
-    {
-        if (!chore.CurrentQueueMemberIdx.HasValue)
-            return Result.Fail(ServiceError.Conflict, "Can't regenerate chore queue without active members");
-        int newQueueMemberRotationOrderIdx = chore.CurrentQueueMemberIdx.Value
-            + chore.QueueItems.Count;
-        int[] membersIdsFromRotaionOrder = chore.Members
-            .Where(m => m.RotationOrder.HasValue)
-            .OrderBy(m => m.RotationOrder)
-            .Select(m => m.UserId)
-            .ToArray();
-        int memberCount = membersIdsFromRotaionOrder.Length;
-        DateTime date = chore.QueueItems.Any()
-            ? chore.QueueItems
-                .OrderBy(i => i.ScheduledDate)
-                .Last().ScheduledDate + chore.Duration + chore.Interval
-            : (chore.StartDate < DateTime.UtcNow
-                    ? DateTime.UtcNow
-                    : chore.StartDate);
-
-        for (int i = 0; i < entryCount; i++)
-        {
-            if (chore.EndDate.HasValue && date < chore.EndDate)
-                break;
-            chore.QueueItems.Add(new ChoreQueue
-            {
-                AssignedMemberId =
-                    membersIdsFromRotaionOrder
-                    [(newQueueMemberRotationOrderIdx + i) % memberCount],
-                ScheduledDate = date
-            });
-            date += chore.Interval + chore.Duration;
-        }
-        await db.SaveChangesAsync(token);
-        return Result.Success();
-    }
-
-    public async Task<Result> SwapQueueItemsAsync
-        (int choreId, int userId, int queueItemAId, int queueItemBId)
-    {
-        var chore = await db.Chores
-            .Include(ch => ch.QueueItems)
-            .Where(ch => ch.Members.Any(m => m.UserId == userId && m.IsAdmin))
-            .FirstOrDefaultAsync(token);
-        if (chore is null) return Result.NotFound("Chore not found");
-        var a = chore?.QueueItems.FirstOrDefault(q => q.Id == queueItemAId);
-        var b = chore?.QueueItems.FirstOrDefault(q => q.Id == queueItemBId);
-        if (a is null || b is null) return Result.NotFound($"Queue item not found");
-        DateTime temp = a.ScheduledDate;
-        a.ScheduledDate = b.ScheduledDate;
-        b.ScheduledDate = temp;
-        await db.SaveChangesAsync(token);
-        return Result.Success();
-    }
-
-    public async Task<Result> SwapMembersInQueueAsync
-        (int requesterId, int choreId, int userAId, int userBId)
-    {
-        var chore = await db.Chores
-            .Include(ch => ch.QueueItems)
-            .Include(ch => ch.Members)
-            .Where(ch => ch.Members.Any(m => m.UserId == requesterId && m.IsAdmin))
-            .FirstOrDefaultAsync(token);
-        if (chore is null) return Result.NotFound("Chore not found");
-        var a = chore.Members.FirstOrDefault(m => m.UserId == userAId);
-        var b = chore.Members.FirstOrDefault(m => m.UserId == userBId);
-        if (a is null || b is null)
-            return Result.NotFound("Member not found");
-        if (!a.RotationOrder.HasValue
-            || !b.RotationOrder.HasValue)
-            return Result.Fail(ServiceError.InvalidInput, "One of members misses rotation order");
-        if (userBId == userAId)
-            return Result.Fail(ServiceError.Conflict, "Can't swap with yourself");
-
-        if (chore.QueueItems.Count != 0)
-        {
-            var exUserAQueueItemIdx = chore.QueueItems
-                .Where(q => q.AssignedMemberId == a.UserId)
-                .Select(q => q.Id)
-                .ToHashSet();
-            chore.QueueItems
-                .Where(q => q.AssignedMemberId == b.UserId)
-                .ToList()
-                .ForEach(q => q.AssignedMemberId = a.UserId);
-            chore.QueueItems
-                .Where(q => exUserAQueueItemIdx.Contains(q.Id))
-                .ToList()
-                .ForEach(q => q.AssignedMemberId = b.UserId);
-        }
-        (a.RotationOrder, b.RotationOrder) = (b.RotationOrder, a.RotationOrder);
-        await db.SaveChangesAsync(token);
-        return Result.Success();
-    }
-
-    public async Task<Result> InsertQueueEntryAsync
-        (int choreId, int requesterId, ChoreQueue entry)
-    {
-        var chore = await db.Chores
-            .Include(ch => ch.QueueItems)
-            .Include(ch => ch.Members)
-            .Where(ch => ch.Members.Any(m => m.UserId == requesterId && m.IsAdmin))
-            .FirstOrDefaultAsync(token);
-        if (chore is null) return Result.NotFound("Chore not found");
-        var member = chore.Members.FirstOrDefault(m => m.UserId == entry.AssignedMemberId);
-        if (member is null) return Result.NotFound("Member not found");
-        if (chore.StartDate > entry.ScheduledDate)
-            return Result.Fail(ServiceError.InvalidInput, "Can't add queue entry in the past");
-        if (chore.EndDate < entry.ScheduledDate)
-            return Result.Fail(ServiceError.InvalidInput, "Can't add queue entry after chore end");
-
-        int rotationMemberCount = chore.Members
-            .Where(m => m.RotationOrder.HasValue).Count();
-
-        if (chore.QueueItems.Count == 0)
-        {
-            chore.QueueItems.Add(entry);
-            await db.SaveChangesAsync(token);
-            return Result.Success();
-        }
-
-        //ensures interval for the previous entry
-        var prevDates = chore.QueueItems
-            .Select(q => q.ScheduledDate)
-            .Where(d => d < entry.ScheduledDate)
-            .Order();
-        if (prevDates.Any())
-        {
-            DateTime reservedTimeForNextChore = prevDates.Last()
-                + chore.Duration + chore.Interval;
-            if (reservedTimeForNextChore > entry.ScheduledDate)
-            {
-                entry.ScheduledDate = reservedTimeForNextChore;
-            }
-        }
-
-        //ensures interval for the post entries
-        var afterItems = chore.QueueItems
-            .Where(q => q.ScheduledDate >= entry.ScheduledDate)
-            .OrderBy(q => q.ScheduledDate);
-        if (afterItems.Any())
-        {
-            TimeSpan interval = entry.ScheduledDate
-                + chore.Duration + chore.Interval - afterItems.First().ScheduledDate;
-            if (interval > TimeSpan.Zero)
-            {
-                foreach (var item in afterItems)
-                {
-                    item.ScheduledDate += interval;
-                }
-            }
-        }
-        chore.QueueItems
-            .Where(i => i.ScheduledDate > chore.EndDate)
-            .ToList()
-            .ForEach(i => chore.QueueItems.Remove(i));
-        RemoveTrailingQueueEntries(chore);
-        chore.QueueItems.Add(entry);
-        await db.SaveChangesAsync(token);
-        return Result.Success();
-    }
-
-    public async Task<Result> InsertMemberInQueueAsync
-        (int choreId, int requesterId, int memberId, int desiredOrderRotationIdx)
-    {
-        var chore = await db.Chores
-            .Include(ch => ch.QueueItems)
-            .Include(ch => ch.Members)
-            .Where(ch => ch.Members.Any(m => m.UserId == requesterId && m.IsAdmin))
-            .FirstOrDefaultAsync(token);
-        if (chore is null) return Result.NotFound("Chore not found");
-        var member = chore.Members.FirstOrDefault(m => m.UserId == memberId);
-        if (member is null) return Result.NotFound("Member not found");
-
-        int rotationMemberCount = chore.Members
-            .Where(m => m.RotationOrder.HasValue).Count();
-        desiredOrderRotationIdx = Math
-            .Clamp(desiredOrderRotationIdx, 0, rotationMemberCount);
-        chore.Members
-            .Where(m => m.RotationOrder.HasValue
-                    && m.RotationOrder >= desiredOrderRotationIdx)
-            .ToList()
-            .ForEach(m => m.RotationOrder++);
-        member.RotationOrder = desiredOrderRotationIdx;
-
-        if (chore.QueueItems.Count == 0)
-        {
-            await db.SaveChangesAsync(token);
-            return Result.Success();
-        }
-
-        var orderedQueue = chore.QueueItems
-            .OrderBy(q => q.ScheduledDate);
-        DateTime startDate = orderedQueue
-            .First().ScheduledDate;
-        DateTime date = orderedQueue
-            .Skip(desiredOrderRotationIdx - 1)
-            .First().ScheduledDate;
-        var itemsToAdd =
-            new List<ChoreQueue>(orderedQueue.Count() / rotationMemberCount);
-
-        foreach (ChoreQueue[] chunk in orderedQueue
-                .Chunk(rotationMemberCount))
-        {
-            itemsToAdd.Add(new ChoreQueue
-            {
-                ScheduledDate = chunk.FirstOrDefault()?.ScheduledDate ?? date,
-                AssignedMemberId = memberId
-            });
-
-            foreach (var choreQueue in chunk)
-            {
-                choreQueue.ScheduledDate += chore.Duration + chore.Interval;
-            }
-            date = chunk.Last().ScheduledDate + chore.Interval;
-        }
-
-        itemsToAdd.ForEach(i => chore.QueueItems.Add(i));
-        RemoveTrailingQueueEntries(chore);
-        await db.SaveChangesAsync(token);
-        return Result.Success();
-    }
-
-    private void RemoveTrailingQueueEntries(Chore chore) =>
-        chore.QueueItems
-            .Where(i => i.ScheduledDate > chore.EndDate)
-            .ToList()
-            .ForEach(i => chore.QueueItems.Remove(i));
-
-    public async Task<Result> DeleteQueueEntryAsync
-        (int choreId, int requesterId, ChoreQueue entry)
-    {
-        var chore = await db.Chores
-            .Include(ch => ch.QueueItems)
-            .Where(ch => ch.Members.Any(m => m.UserId == requesterId && m.IsAdmin))
-            .Where(ch => ch.Members.Any(m => m.UserId == entry.AssignedMemberId))
-            .FirstOrDefaultAsync(token);
-        if (chore is null) return Result.NotFound("Chore not found");
-        if (!chore.QueueItems
-                .Any(q => entry.AssignedMemberId == q.AssignedMemberId
-                    && entry.ScheduledDate == q.ScheduledDate))
-            return Result.NotFound("Found nothing to remove");
-
-        var afterItems = chore.QueueItems
-            .Where(q => q.ScheduledDate > entry.ScheduledDate);
-        if (afterItems.Any())
-        {
-            TimeSpan interval = afterItems.First().ScheduledDate - entry.ScheduledDate;
-            foreach (var item in afterItems)
-            {
-                item.ScheduledDate -= interval;
-            }
-        }
-        chore.QueueItems.Remove(chore.QueueItems.First(q =>
-                    q.ScheduledDate == entry.ScheduledDate
-                    && q.AssignedMemberId == entry.AssignedMemberId));
-        await db.SaveChangesAsync(token);
-        return Result.Success();
-    }
-
-    public async Task<Result> DeleteMemberFromQueueAsync
-        (int choreId, int requesterId, int memberId)
-    {
-        var chore = await db.Chores
-            .Include(ch => ch.QueueItems)
-            .Include(ch => ch.Members)
-            .Where(ch => ch.Members.Any(m => m.UserId == requesterId && m.IsAdmin))
-            .FirstOrDefaultAsync(token);
-        if (chore is null) return Result.NotFound("Chore not found");
-        var member = chore.Members
-            .Where(m => m.UserId == memberId && m.RotationOrder.HasValue)
-            .FirstOrDefault();
-        if (member is null) return Result.NotFound("Member not found");
-        if (chore.Members.Where(m => m.RotationOrder.HasValue).Count() == 1)
-        {
-            chore.QueueItems.Clear();
-            chore.CurrentQueueMemberIdx = null;
-            await db.SaveChangesAsync(token);
-            return Result.Success();
-        }
-        TimeSpan offset = TimeSpan.Zero;
-        var orderedQueue = chore.QueueItems
-                .OrderBy(q => q.ScheduledDate);
-        ChoreQueue? prevDelteteMember = null;
-
-        foreach (var item in orderedQueue)
-        {
-            if (prevDelteteMember is not null)
-            {
-                offset += (item.ScheduledDate - prevDelteteMember.ScheduledDate)
-                    .Duration();
-                prevDelteteMember = null;
-            }
-            if (item.AssignedMemberId == memberId)
-            {
-                prevDelteteMember = item;
-                continue;
-            }
-            item.ScheduledDate -= offset;
-        }
-
-        var members = chore.Members
-            .Where(m => m.RotationOrder.HasValue
-                && m.RotationOrder > member.RotationOrder);
-        foreach (var m in members)
-        {
-            m.RotationOrder--;
-        }
-
-        db.ChoreQueue.RemoveRange(chore.QueueItems
-                .Where(q => q.AssignedMemberId == memberId));
-
-        chore.CurrentQueueMemberIdx = orderedQueue.First().AssignedMemberId;
-        member.RotationOrder = null;
-        await db.SaveChangesAsync(token);
-        return Result.Success();
-    }
-
-    public async Task<Result> RegenerateQueueAsync
-        (int choreId, int userId)
-    {
-        var chore = await db.Chores
-            .Include(ch => ch.QueueItems)
-            .Where(ch => ch.Members.Any(m => m.UserId == userId && m.IsAdmin))
-            .FirstOrDefaultAsync(token);
-        if (chore is null) return Result.NotFound("Chore not found");
-
-        using var transaction = await db.Database.BeginTransactionAsync(token);
-        await RegenerateQueueAsync(chore);
-        await transaction.CommitAsync(token);
-        return Result.Success();
-    }
-
-    private async Task<Result> RegenerateQueueAsync(Chore chore)
-    {
-        int queueCount = chore.QueueItems.Count;
-        chore.QueueItems.Clear();
-        await db.SaveChangesAsync(token);
-        var extentionResult = await ExtendQueueFromEntryCountAsync(chore, queueCount);
-        if (!extentionResult.IsSuccess)
-        {
-            return extentionResult;
-        }
-        return Result.Success();
-    }
-
-    //todo: test it
-    public async Task<Result> ChangeQueueEntryIntervalAsync
-        (int choreId, int requesterId, int queueEntryId, TimeSpan interval)
-    {
-        var check = await ExistsAndSufficientPrivilegesAsync
-            (choreId, requesterId, Privileges.Admin);
-        if (!check.IsSuccess) return check;
-        await db.ChoreQueue
-            .Where(q => q.ChoreId == choreId)
-            .OrderBy(q => q.ScheduledDate)
-            .SkipWhile(q => q.Id != queueEntryId)
-            .Skip(1)
-            .ForEachAsync(q => q.ScheduledDate += interval, token);
-        RemoveTrailingQueueEntries(await db.Chores
-                .Include(ch => ch.QueueItems)
-                .FirstAsync(ch => ch.Id == choreId, token));
-        await db.SaveChangesAsync(token);
-        return Result.Success();
-    }
-
-    #endregion
-
-    private async Task<bool> ArePrivilegesSufficientAsync
-        (Privileges privilege, int choreId, int userId) => privilege switch
-        {
-            Privileges.Owner => await db.Chores
-                .AnyAsync(ch => ch.Id == choreId
-                        && ch.OwnerId == userId),
-            Privileges.Admin => await db.Chores
-                .Include(ch => ch.Members)
-                .AnyAsync(ch => ch.Members
-                        .Any(m => m.UserId == userId && m.IsAdmin)),
-            Privileges.Member => await db.Chores
-                .Include(ch => ch.Members)
-                .AnyAsync(ch => ch.Members.Any(m => m.UserId == userId)),
-            _ => false,
-        };
-
-    enum Privileges
-    {
-        Owner,
-        Admin,
-        Member,
-    }
 
     private Result ChangeChoreScheduleIfValid(Chore chore, CreateChoreRequest request)
         => ChangeChoreScheduleIfValid(chore, new Schedule(request));
@@ -939,15 +398,4 @@ public class ChoreService(Context db, CancellationToken token)
         }
     }
 
-    private async Task<Result> ExistsAndSufficientPrivilegesAsync
-        (int choreId, int userId, Privileges privilege)
-    {
-        if (!await db.Chores.AnyAsync(ch => ch.Id == choreId))
-            return Result.NotFound("Chore not found");
-        if (!await db.Users.AnyAsync(u => u.Id == userId))
-            return Result.NotFound("User not found");
-        if (!await ArePrivilegesSufficientAsync(privilege, choreId, userId))
-            return Result.Forbidden();
-        return Result.Success();
-    }
 }
