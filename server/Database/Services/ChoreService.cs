@@ -471,7 +471,7 @@ public class ChoreService(Context db, CancellationToken token)
     #endregion
 
     #region QueueManagement
-    public async Task<Result> ExtendQueueAsync(int choreId, int days)
+    public async Task<Result> ExtendQueueFromDaysAsync(int choreId, int days)
     {
         if (days <= 0)
             return Result.Fail(ServiceError.InvalidInput, "Days chould be positive");
@@ -481,9 +481,30 @@ public class ChoreService(Context db, CancellationToken token)
             .FirstOrDefaultAsync(token);
         if (chore is null)
             return Result.NotFound("Chore not found");
+        TimeSpan durationToCover = TimeSpan.FromDays(days);
+        int totalItems = int
+            .Max(1, (int)((durationToCover - chore.Duration) / (chore.Duration + chore.Interval) + 1));
+        return await ExtendQueueFromEntryCountAsync(chore, totalItems);
+    }
+
+    public async Task<Result> ExtendQueueFromEntryCountAsync(int choreId, int entryCount)
+    {
+        if (entryCount <= 0)
+            return Result.Fail(ServiceError.InvalidInput, "Entry count should be positive");
+        var chore = await db.Chores
+            .Include(ch => ch.Members)
+            .Where(ch => ch.Id == choreId)
+            .FirstOrDefaultAsync(token);
+        if (chore is null)
+            return Result.NotFound("Chore not found");
+        return await ExtendQueueFromEntryCountAsync(chore, entryCount);
+    }
+
+    private async Task<Result> ExtendQueueFromEntryCountAsync(Chore chore, int entryCount)
+    {
         if (!chore.CurrentQueueMemberIdx.HasValue)
             return Result.Fail(ServiceError.Conflict, "Can't regenerate chore queue without active members");
-        int newQueueMemberRotationOrderIdx = (chore.CurrentQueueMemberIdx ?? 0)
+        int newQueueMemberRotationOrderIdx = chore.CurrentQueueMemberIdx.Value
             + chore.QueueItems.Count;
         int[] membersIdsFromRotaionOrder = chore.Members
             .Where(m => m.RotationOrder.HasValue)
@@ -492,16 +513,14 @@ public class ChoreService(Context db, CancellationToken token)
             .ToArray();
         int memberCount = membersIdsFromRotaionOrder.Length;
         DateTime date = chore.QueueItems.Any()
-            ? chore.QueueItems.OrderBy(i => i.ScheduledDate)
-            .Last().ScheduledDate + chore.Duration + chore.Interval
+            ? chore.QueueItems
+                .OrderBy(i => i.ScheduledDate)
+                .Last().ScheduledDate + chore.Duration + chore.Interval
             : (chore.StartDate < DateTime.UtcNow
                     ? DateTime.UtcNow
                     : chore.StartDate);
 
-        TimeSpan durationToCover = TimeSpan.FromDays(days);
-        int totalItems = int
-            .Max(1, (int)((durationToCover - chore.Duration) / (chore.Duration + chore.Interval) + 1));
-        var queueItems = new ChoreQueue[totalItems];
+        var queueItems = new ChoreQueue[entryCount];
         for (int i = 0; i < queueItems.Length; i++)
         {
             queueItems[i] = new ChoreQueue
@@ -803,7 +822,7 @@ public class ChoreService(Context db, CancellationToken token)
         daysToRegenerarate = daysToRegenerarate is null
             ? DateTime.DaysInMonth(DateTime.UtcNow.Year, DateTime.UtcNow.Month)
             : daysToRegenerarate;
-        var extentionResult = await ExtendQueueAsync(choreId, daysToRegenerarate.Value);
+        var extentionResult = await ExtendQueueFromDaysAsync(choreId, daysToRegenerarate.Value);
         if (!extentionResult.IsSuccess)
         {
             return extentionResult;
