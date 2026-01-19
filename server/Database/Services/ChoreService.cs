@@ -471,15 +471,18 @@ public class ChoreService(Context db, CancellationToken token)
     #endregion
 
     #region QueueManagement
-    public async Task<bool> ExtendQueueAsync(int choreId, int days)
+    public async Task<Result> ExtendQueueAsync(int choreId, int days)
     {
-        if (days <= 0) return false;
+        if (days <= 0) 
+            return Result.Fail(ServiceError.InvalidInput, "Days chould be positive");
         var chore = await db.Chores
             .Include(ch => ch.Members)
             .Where(ch => ch.Id == choreId)
             .FirstOrDefaultAsync(token);
-        if (chore is null || !chore.CurrentQueueMemberIdx.HasValue)
-            return false;
+        if (chore is null)
+            return Result.NotFound("Chore not found");
+        if (!chore.CurrentQueueMemberIdx.HasValue)
+            return Result.Fail(ServiceError.Conflict, "Can't regenerate chore queue without active members");
         int newQueueMemberRotationOrderIdx = (chore.CurrentQueueMemberIdx ?? 0)
             + chore.QueueItems.Count;
         int[] membersIdsFromRotaionOrder = chore.Members
@@ -512,7 +515,7 @@ public class ChoreService(Context db, CancellationToken token)
             chore.QueueItems.Add(queueItems[i]);
         }
         await db.SaveChangesAsync(token);
-        return true;
+        return Result.Success();
     }
 
     // swap (permanent for member swapping and swap at specific place once when requested)
@@ -784,9 +787,9 @@ public class ChoreService(Context db, CancellationToken token)
         daysToRegenerarate = daysToRegenerarate is null
             ? DateTime.DaysInMonth(DateTime.UtcNow.Year, DateTime.UtcNow.Month)
             : daysToRegenerarate;
-        if (!await ExtendQueueAsync(choreId,
+        if (!(await ExtendQueueAsync(choreId,
                     daysToRegenerarate.Value
-                    ))
+                    )).IsSuccess)
             return false;
         return true;
     }
