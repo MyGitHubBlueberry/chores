@@ -440,10 +440,10 @@ public class ChoreServiceTests
         using var context = new Context(options);
         var service = new ChoreService(context, CancellationToken.None);
         Assert.Equal(2, chore.Members.Count);
-        Assert.True(await service
+        Assert.True((await service
                 .DeleteMemberAsync(chore.Id,
                     chore.OwnerId,
-                    chore.Members.First(m => !m.IsAdmin).UserId));
+                    chore.Members.First(m => !m.IsAdmin).UserId)).IsSuccess);
         chore = await context.Chores.FirstAsync();
         Assert.Single(chore.Members);
     }
@@ -464,8 +464,8 @@ public class ChoreServiceTests
         using var context = new Context(options);
         var service = new ChoreService(context, CancellationToken.None);
         Assert.Equal(2, chore.Members.Count);
-        Assert.True(await service
-                .DeleteMemberAsync(chore.Id, memberId, memberId));
+        Assert.True((await service
+                .DeleteMemberAsync(chore.Id, memberId, memberId)).IsSuccess);
         chore = await context.Chores.FirstAsync();
         Assert.Single(chore.Members);
     }
@@ -482,8 +482,8 @@ public class ChoreServiceTests
         using var context = new Context(options);
         var service = new ChoreService(context, CancellationToken.None);
         Assert.Equal(2, chore.Members.Count);
-        Assert.True(await service
-                .DeleteMemberAsync(chore.Id, chore.OwnerId, chore.OwnerId));
+        Assert.True((await service
+                .DeleteMemberAsync(chore.Id, chore.OwnerId, chore.OwnerId)).IsSuccess);
         Assert.Null(await context.Chores.FirstOrDefaultAsync());
     }
 
@@ -507,8 +507,8 @@ public class ChoreServiceTests
         using var context = new Context(options);
         var service = new ChoreService(context, CancellationToken.None);
         Assert.Equal(3, chore.Members.Count);
-        Assert.False(await service
-                .DeleteMemberAsync(chore.Id, adminIds[0], adminIds[1]));
+        Assert.False((await service
+                .DeleteMemberAsync(chore.Id, adminIds[0], adminIds[1])).IsSuccess);
         chore = await context.Chores.FirstAsync();
         Assert.Equal(3, chore.Members.Count);
     }

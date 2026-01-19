@@ -392,62 +392,50 @@ public class ChoreService(Context db, CancellationToken token)
         return Result.Success();
     }
 
-    //TODO: should regenerate Queue
-    public async Task<bool> DeleteMemberAsync
+    public async Task<Result> DeleteMemberAsync
         (int choreId, int requesterId, int targetUserId)
     {
         var chore = await db.Chores
             .Include(c => c.Members)
             .FirstOrDefaultAsync(c => c.Id == choreId, token);
 
-        if (chore is null) return false;
+        if (chore is null) return Result.NotFound("Chore not found");
 
         bool isOwner = chore.OwnerId == requesterId;
         bool isAdmin = chore.Members.Any(m => m.UserId == requesterId && m.IsAdmin);
         bool isSelf = requesterId == targetUserId;
 
-        if (!isOwner && !isAdmin && !isSelf) return false;
-        if (targetUserId == chore.OwnerId && !isOwner) return false;
+        if (!isOwner && !isAdmin && !isSelf) return Result.Forbidden();
+        if (targetUserId == chore.OwnerId && !isOwner) return Result.Forbidden();
 
         var targetMember = chore.Members.FirstOrDefault(m => m.UserId == targetUserId);
-        if (targetMember is null) return false;
+        if (targetMember is null) return Result.NotFound("Member not found");
 
-        if (!isOwner && isAdmin && targetMember.IsAdmin && !isSelf) return false;
+        if (!isOwner && isAdmin && targetMember.IsAdmin && !isSelf) 
+            return Result.Forbidden("Admins can't remove other admins");
 
         if (isOwner && isSelf)
-        {
-            return (await DeleteChoreAsync(choreId, requesterId)).IsSuccess;
-        }
+            return await DeleteChoreAsync(choreId, requesterId);
 
         if (targetMember.RotationOrder.HasValue)
         {
             var rotationList = chore.Members
-                .Where(m => m.RotationOrder.HasValue)
-                .OrderBy(m => m.RotationOrder)
-                .ToList();
+                .Where(m => m.RotationOrder.HasValue 
+                        && m.RotationOrder > targetMember.RotationOrder)
+                .OrderBy(m => m.RotationOrder);
 
 
-            foreach (var member in rotationList.Skip(targetMember.RotationOrder.Value))
+            foreach (var member in rotationList)
             {
                 member.RotationOrder--;
             }
-
-            int count = rotationList.Count;
-            if (count == 1)
-            {
-                chore.IsPaused = true;
-                chore.CurrentQueueMemberIdx = 0;
-            }
-            else if (chore.CurrentQueueMemberIdx == count)
-            {
-                chore.CurrentQueueMemberIdx = 0;
-            }
         }
 
+        await DeleteMemberFromQueueAsync(choreId, chore.OwnerId, targetUserId);
         chore.Members.Remove(targetMember);
 
         await db.SaveChangesAsync(token);
-        return true;
+        return Result.Success();
     }
 
     public async Task<bool> SetAdminStatusAsync
@@ -506,7 +494,6 @@ public class ChoreService(Context db, CancellationToken token)
                     : chore.StartDate);
 
         TimeSpan durationToCover = TimeSpan.FromDays(days);
-        //todo: fix interval causes chore to be dismissed at the end
         int totalItems = int
             .Max(1, (int)((durationToCover - chore.Duration) / (chore.Duration + chore.Interval) + 1));
         var queueItems = new ChoreQueue[totalItems];
@@ -731,6 +718,7 @@ public class ChoreService(Context db, CancellationToken token)
         return true;
     }
 
+    //todo: queue member idx
     public async Task<bool> DeleteMemberFromQueueAsync
         (int choreId, int requesterId, int memberId)
     {
