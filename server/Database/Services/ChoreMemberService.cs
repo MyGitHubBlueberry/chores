@@ -30,9 +30,9 @@ public class ChoreMemberService
         if (!request.UsernamesToMemberStatuses.Any())
             return Result.Fail(ServiceError.InvalidInput, "No members to add");
 
-        var idUsernamePairs = db.Users
-            .Where(u => request.UsernamesToMemberStatuses.ContainsKey(u.Username))
-            .ToDictionary(u => u.Id, u => u.Username);
+        var idUsernamePairs = await db.Users
+            .Where(u => request.UsernamesToMemberStatuses.Keys.Contains(u.Username))
+            .ToDictionaryAsync(u => u.Id, u => u.Username, token);
 
         if (idUsernamePairs is null || !idUsernamePairs.Any())
             return Result.NotFound("No users with requested usernames found");

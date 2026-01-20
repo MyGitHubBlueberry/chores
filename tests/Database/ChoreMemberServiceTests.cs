@@ -9,7 +9,7 @@ namespace Tests.Database;
 public class ChoreMemberServiceTests 
 {
     [Fact]
-    public async Task AddMemberAsync_Adds_Member()
+    public async Task AddMembersAsync_Can_Add_One()
     {
         var (connection, options) = await DbTestHelper.SetupTestDbAsync();
         Chore chore;
@@ -23,13 +23,16 @@ public class ChoreMemberServiceTests
             user = await DbTestHelper.CreateAndAddUser("user", context);
         }
 
-        var request = new AddMembersRequest(chore.Id, user.Username);
+        MemberStatus stasus = new MemberStatus(IsAdmin: false, RotationOrder: null);
+        var dict = new Dictionary<string, MemberStatus>(1);
+        dict.Add("user", stasus);
+        var request = new AddMembersRequest(chore.Id, dict);
 
         using (var context = new Context(options))
         {
             var service = DbTestHelper.GetChoreMemberService(context);
             Assert.Single(chore.Members);
-            Assert.True((await service.AddMemberAsync(chore.OwnerId, request)).IsSuccess);
+            Assert.True((await service.AddMembersAsync(chore.OwnerId, request)).IsSuccess);
             chore = await context.Chores.FirstAsync();
             Assert.Equal(2, chore.Members.Count);
         }
