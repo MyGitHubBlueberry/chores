@@ -12,8 +12,12 @@ namespace Database.Services;
 public class ChoreMemberService
     (Context db, ChoreQueueService qServ, ChoreService cServ, ChorePermissionService pServ)
 {
-    //TODO: switch to add memberS maybe pass ienumerable(async) in request
     //TODO: test it better
+    //TODO: test with valid data
+    //TODO: test with some users not existing
+    //TODO: test with some users being members
+    //TODO: test for queue
+    //TODO: make insert members in queue
     public async Task<Result> AddMembersAsync
         (int requesterId, AddMembersRequest request, CancellationToken token = default)
     {
@@ -78,9 +82,10 @@ public class ChoreMemberService
         return Result.Success();
     }
 
+    //TODO: test for rotation order
     public async Task<Result> DeleteMemberAsync
         (int choreId, int requesterId, int targetUserId, CancellationToken token = default)
-    {
+   {
         var chore = await db.Chores
             .Include(c => c.Members)
             .FirstOrDefaultAsync(c => c.Id == choreId, token);
