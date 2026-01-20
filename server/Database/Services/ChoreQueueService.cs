@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -408,5 +409,102 @@ public class ChoreQueueService(Context db, ChorePermissionService pServ)
                 .FirstAsync(ch => ch.Id == choreId, token));
         await db.SaveChangesAsync(token);
         return Result.Success();
+    }
+
+    //todo: test it
+    public async Task<Result> CompleteCurrentQueueEntryAsync
+        (int userId, int choreId, CancellationToken token = default)
+    {
+        using var transaction = await db.Database.BeginTransactionAsync(token);
+        var chore = await db.Chores
+            .FirstOrDefaultAsync(token);
+
+        var result = await pServ.ExistsAndSufficientPrivilegesAsync
+            (choreId, userId, Privileges.Member);
+        if (!result.IsSuccess) return result;
+        Debug.Assert(chore is not null);
+        if (chore.IsPaused) return Result
+            .Fail(ServiceError.Conflict, "Can't complete chores while paused");
+
+        var queueItem = db.ChoreQueue
+            .Where(q => q.ChoreId == choreId)
+            .Where(q => q.AssignedMemberId == userId);
+        if (!await queueItem.AnyAsync(token))
+            return Result.Forbidden();
+        if (await queueItem
+                .Where(q => q.ScheduledDate < DateTime.UtcNow)
+                .ExecuteDeleteAsync(token) == 0)
+            return Result.Fail(ServiceError.Conflict, "Can't complete unstarted chore");
+        chore.Logs.Add(new ChoreLog
+        {
+            UserId = userId,
+            CompletedAt = DateTime.UtcNow,
+            Status = Shared.Database.Enums.ChoreStatus.Completed,
+            ChoreId = chore.Id,
+            Duration = chore.Duration,
+        });
+
+        var dates = db.ChoreQueue
+            .Where(q => q.ChoreId == choreId)
+            .Select(q => q.ScheduledDate)
+            .OrderBy(d => d);
+
+        DateTime date = await dates.AnyAsync(token)
+            ? await dates.LastAsync(token)
+            : DateTime.UtcNow;
+
+        chore.CurrentQueueMemberIdx = GetNextMemberIdx(chore);
+        await ExtendQueueFromEntryCountAsync(chore, 1, token);
+
+        await db.SaveChangesAsync(token);
+        await transaction.CommitAsync(token);
+        return Result.Success();
+    }
+
+    //todo: test it
+    public async Task ProcessMissedQueueEntriesAsync(CancellationToken token = default)
+    {
+        var missedItems = await db.ChoreQueue
+            .Include(q => q.Chore)
+            .Where(q => q.ScheduledDate + q.Chore!.Duration < DateTime.UtcNow)
+            .ToListAsync(token);
+        if (missedItems.Count == 0) return;
+
+        await db.ChoreLogs.AddRangeAsync(missedItems
+                .Select(i => new ChoreLog
+                {
+                    Duration = i.Chore!.Duration,
+                    ChoreId = i.Chore.Id,
+                    Status = Shared.Database.Enums.ChoreStatus.Missed,
+                    CompletedAt = DateTime.UtcNow,
+                    UserId = i.AssignedMemberId,
+                }), token);
+
+        await db.ChoreQueue
+            .Where(q => q.ScheduledDate + q.Chore!.Duration < DateTime.UtcNow)
+            .ExecuteDeleteAsync(token);
+
+        var choreIds = missedItems.Select(i => i.ChoreId).Distinct();
+        missedItems
+            .GroupBy(i => i.Chore)
+            .Select(i => (i.First().Chore, i.Count()))
+            .Distinct()
+            .ToList()
+            .ForEach(async tuple =>
+            {
+                var (chore, missedItemCount) = tuple;
+                chore!.CurrentQueueMemberIdx = GetNextMemberIdx(chore, missedItemCount);
+                await ExtendQueueFromEntryCountAsync(chore, missedItemCount);
+            });
+
+        await db.SaveChangesAsync(token);
+    }
+
+    //todo: test it
+    private int? GetNextMemberIdx(Chore chore, int count = 1, CancellationToken token = default)
+    {
+        Debug.Assert(count >= 1);
+        int totalWorkers = chore.Members.Count(m => m.RotationOrder.HasValue);
+        return (chore.CurrentQueueMemberIdx + count) % totalWorkers;
     }
 }
