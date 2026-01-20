@@ -4,6 +4,7 @@ using Shared.Database.Models;
 
 namespace Tests.Database;
 
+[Trait("Database", "QueueService")]
 public class ChoreQueueServiceTests
 {
     [Fact]

@@ -7,6 +7,7 @@ using Shared.Networking.Packets;
 namespace Tests.Database;
 
 //todo: add abstract test to test for privileges?
+[Trait("Database", "ChoreService")]
 public class ChoreServiceTests
 {
     CreateChoreRequest choreRequest = new(

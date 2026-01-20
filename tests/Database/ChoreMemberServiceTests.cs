@@ -5,6 +5,7 @@ using Shared.Networking.Packets;
 
 namespace Tests.Database;
 
+[Trait("Database", "MemberService")]
 public class ChoreMemberServiceTests 
 {
     [Fact]

@@ -6,6 +6,7 @@ using Shared.Networking;
 
 namespace Tests.Database;
 
+[Trait("Database", "UserService")]
 public class UserServiceTests
 {
     [Fact]
