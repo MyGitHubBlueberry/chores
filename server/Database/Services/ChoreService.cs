@@ -93,7 +93,7 @@ public class ChoreService(Context db, ChoreQueueService qServ, ChorePermissionSe
                 : Result.Fail(ServiceError.DatabaseError, "Could not update chore details");  //should never happen
     }
 
-    //todo: test more
+    //todo: test for queue regeneration and trim
     public async Task<Result> UpdateScheduleAsync
         (int userId, UpdateChoreScheduleRequest request, CancellationToken token = default)
     {

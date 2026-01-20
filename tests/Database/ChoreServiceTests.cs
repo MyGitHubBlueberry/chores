@@ -400,4 +400,43 @@ public class ChoreServiceTests
         Assert.Equal(request.Interval, chore.Interval);
         Assert.Equal(request.Duration, chore.Duration);
     }
+
+    [Fact]
+    public async Task PauseChore_Pauses_Chore()
+    {
+        var (connection, options) = await DbTestHelper.SetupTestDbAsync();
+        using (var context = new Context(options))
+        {
+            Chore chore = await new DbTestChoreBuilder(context)
+                .WithOwner()
+                .BuildAsync();
+            chore.IsPaused = false;
+            await context.SaveChangesAsync();
+            Assert.False((await context.Chores.FirstAsync()).IsPaused);
+            Assert.True((await DbTestHelper.GetChoreService(context)
+                        .PauseChoreAsync(chore.OwnerId, chore.Id)).IsSuccess);
+        }
+        using (var context = new Context(options))
+        {
+            Assert.True((await context.Chores.FirstAsync()).IsPaused);
+        }
+    }
+
+    [Fact]
+    public async Task PauseChore_Members_Cant_Pause()
+    {
+        var (connection, options) = await DbTestHelper.SetupTestDbAsync();
+        using var context = new Context(options);
+        Chore chore = await new DbTestChoreBuilder(context)
+            .WithOwner()
+            .WithMember()
+            .BuildAsync();
+        chore.IsPaused = false;
+        await context.SaveChangesAsync();
+        Assert.False((await context.Chores.FirstAsync()).IsPaused);
+        var result = await DbTestHelper.GetChoreService(context)
+            .PauseChoreAsync(chore.Members.Where(m => !m.IsAdmin).First().UserId, chore.Id);
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ServiceError.Forbidden, result.Error);
+    }
 }
