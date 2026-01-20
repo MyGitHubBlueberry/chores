@@ -136,7 +136,6 @@ public class ChoreService(Context db, ChoreQueueService qServ, ChorePermissionSe
         return Result.Success();
     }
 
-    //todo: test it
     public async Task<Result> PauseChoreAsync
         (int userId, int choreId, CancellationToken token = default)
     {
@@ -151,7 +150,7 @@ public class ChoreService(Context db, ChoreQueueService qServ, ChorePermissionSe
             : Result.Fail(ServiceError.DatabaseError, "Failed to pause the chore");
     }
 
-    //todo: test it
+    //todo: test for queue offset after unpause
     public async Task<Result> UnpauseChoreAsync
         (int userId, int choreId, CancellationToken token = default)
     {

@@ -439,4 +439,64 @@ public class ChoreServiceTests
         Assert.False(result.IsSuccess);
         Assert.Equal(ServiceError.Forbidden, result.Error);
     }
+
+    [Fact]
+    public async Task UnpauseChore_Members_Cant_Unpause()
+    {
+        var (connection, options) = await DbTestHelper.SetupTestDbAsync();
+        using var context = new Context(options);
+        Chore chore = await new DbTestChoreBuilder(context)
+            .WithOwner()
+            .WithMember()
+            .BuildAsync();
+        var result = await DbTestHelper.GetChoreService(context)
+            .UnpauseChoreAsync(chore.Members.Where(m => !m.IsAdmin).First().UserId, chore.Id);
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ServiceError.Forbidden, result.Error);
+    }
+
+    [Fact]
+    public async Task UnpauseChore_Cant_Unpause_Ended_Chore()
+    {
+        var (connection, options) = await DbTestHelper.SetupTestDbAsync();
+        using var context = new Context(options);
+        var endTime = TimeSpan.FromSeconds(1);
+        Chore chore = await new DbTestChoreBuilder(context)
+            .WithOwner()
+            .WithMember()
+            .WithEndDate(DateTime.UtcNow + endTime)
+            .BuildAsync();
+        Thread.Sleep(endTime);
+        var result = await DbTestHelper.GetChoreService(context)
+            .UnpauseChoreAsync(chore.OwnerId, chore.Id);
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ServiceError.Conflict, result.Error);
+    }
+
+    [Fact]
+    public async Task UnpauseChore_Cant_Unpause_Without_Active_Members()
+    {
+        var (connection, options) = await DbTestHelper.SetupTestDbAsync();
+        using var context = new Context(options);
+        Chore chore = await new DbTestChoreBuilder(context)
+            .WithOwner()
+            .BuildAsync();
+        var result = await DbTestHelper.GetChoreService(context)
+            .UnpauseChoreAsync(chore.OwnerId, chore.Id);
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ServiceError.InvalidInput, result.Error);
+    }
+
+    [Fact]
+    public async Task UnpauseChore_Unpauses_Chore()
+    {
+        var (connection, options) = await DbTestHelper.SetupTestDbAsync();
+        using var context = new Context(options);
+        Chore chore = await new DbTestChoreBuilder(context)
+            .WithOwner()
+            .WithMember("member", 0)
+            .BuildAsync();
+        Assert.True((await DbTestHelper.GetChoreService(context)
+            .UnpauseChoreAsync(chore.OwnerId, chore.Id)).IsSuccess);
+    }
 }
