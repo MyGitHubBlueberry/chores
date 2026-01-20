@@ -1,4 +1,5 @@
 using Database;
+using Database.Services;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Shared.Database.Models;
@@ -36,5 +37,22 @@ public static class DbTestHelper
         await db.Users.AddAsync(user);
         await db.SaveChangesAsync();
         return user;
+    }
+
+    public static ChoreMemberService GetChoreMemberService(Context db)
+    {
+        var perm = new ChorePermissionService(db);
+        var queue = new ChoreQueueService(db, perm);
+        return new(db, queue, new ChoreService(db, queue, perm), perm);
+    }
+
+    public static ChoreQueueService GetChoreQueueService(Context db)
+        => new(db, new ChorePermissionService(db));
+
+    public static ChoreService GetChoreService(Context db)
+    {
+        var perm = new ChorePermissionService(db);
+        var queue = new ChoreQueueService(db, perm);
+        return new(db, queue, perm);
     }
 }
