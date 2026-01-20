@@ -23,7 +23,7 @@ public class ChoreMemberServiceTests
             user = await DbTestHelper.CreateAndAddUser("user", context);
         }
 
-        var request = new AddMemberRequest(chore.Id, user.Username);
+        var request = new AddMembersRequest(chore.Id, user.Username);
 
         using (var context = new Context(options))
         {

@@ -24,9 +24,12 @@ public record UpdateChoreScheduleRequest(
     TimeSpan? Interval = null
 );
 
-public record AddMemberRequest(
+public record AddMembersRequest(
     int ChoreId,
-    string Username,
+    Dictionary<string, MemberStatus> UsernamesToMemberStatuses
+);
+
+public record MemberStatus(
     bool IsAdmin = false,
     int? RotationOrder = null
 );

@@ -9,17 +9,13 @@ using Privileges = Database.Services.ChorePermissionService.Privileges;
 
 namespace Database.Services;
 
-//todo: needs shared methods
-//todo: needs queue
-//todo: needs chore
-
 public class ChoreMemberService
     (Context db, ChoreQueueService qServ, ChoreService cServ, ChorePermissionService pServ)
 {
     //TODO: switch to add memberS maybe pass ienumerable(async) in request
     //TODO: test it better
-    public async Task<Result> AddMemberAsync
-        (int requesterId, AddMemberRequest request, CancellationToken token = default)
+    public async Task<Result> AddMembersAsync
+        (int requesterId, AddMembersRequest request, CancellationToken token = default)
     {
         var chore = await db.Chores
             .Include(ch => ch.Members)
@@ -27,36 +23,57 @@ public class ChoreMemberService
             .FirstOrDefaultAsync(token);
         if (chore is null) return Result.NotFound("Chore not found");
 
-        var result = await pServ.ExistsAndSufficientPrivilegesAsync
+        var authResult = await pServ.ExistsAndSufficientPrivilegesAsync
             (request.ChoreId, requesterId, Privileges.Admin);
-        if (!result.IsSuccess) return result;
+        if (!authResult.IsSuccess) return authResult;
 
-        var userIdToAdd = db.Users
-            .FirstOrDefault(u => u.Username == request.Username)?.Id;
-        if (userIdToAdd is null) return Result.NotFound("Requested user doesn't exist");
+        if (!request.UsernamesToMemberStatuses.Any())
+            return Result.Fail(ServiceError.InvalidInput, "No members to add");
 
-        if (chore.Members.Any(m => m.UserId == userIdToAdd))
-            return Result.Fail(ServiceError.Conflict, "User is already in the chore");
+        var idUsernamePairs = db.Users
+            .Where(u => request.UsernamesToMemberStatuses.ContainsKey(u.Username))
+            .ToDictionary(u => u.Id, u => u.Username);
 
-        var member = new ChoreMember
-        {
-            UserId = userIdToAdd.Value,
-            ChoreId = request.ChoreId,
-            IsAdmin = request.IsAdmin,
-        };
+        if (idUsernamePairs is null || !idUsernamePairs.Any())
+            return Result.NotFound("No users with requested usernames found");
+        if (idUsernamePairs.Count != request.UsernamesToMemberStatuses.Count)
+            return Result.NotFound("Not all users from requested list were found");
+
+        if (chore.Members.Any(m => idUsernamePairs.ContainsKey(m.UserId)))
+            return Result.Fail(ServiceError.Conflict,
+                    "At least one of requested users is already a member");
 
         using var transaction = await db.Database.BeginTransactionAsync(token);
 
-        chore.Members.Add(member);
+        var members = idUsernamePairs.Select(pair => new ChoreMember
+        {
+            UserId = pair.Key,
+            IsAdmin = request.UsernamesToMemberStatuses[pair.Value].IsAdmin
+        });
+        foreach (var member in members)
+            chore.Members.Add(member);
+
         await db.SaveChangesAsync(token);
 
-        if (request.RotationOrder.HasValue)
+        var withRotationOrder = request.UsernamesToMemberStatuses
+            .Where(x => x.Value.RotationOrder.HasValue)
+            .Join(idUsernamePairs,
+                    usernameStasus => usernameStasus.Key,
+                    idUsername => idUsername.Value,
+                    (usernameStasus, idUsername) => new
+                    {
+                        Id = idUsername.Key,
+                        RotationOrder = usernameStasus.Value.RotationOrder!.Value,
+                    });
+
+        foreach (var entry in withRotationOrder)
         {
-            var insertionResult = !(await qServ.InsertMemberInQueueAsync
-                (chore.Id, requesterId, userIdToAdd.Value, request.RotationOrder.Value)).IsSuccess;
-            if (!insertionResult)
-                return Result.Fail(ServiceError.DatabaseError, "Something went wrong");
+            var insertionResult = await qServ.InsertMemberInQueueAsync
+                    (chore.Id, requesterId, entry.Id, entry.RotationOrder);
+            if (!insertionResult.IsSuccess)
+                return insertionResult;
         }
+
         await transaction.CommitAsync(token);
         return Result.Success();
     }
