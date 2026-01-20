@@ -359,7 +359,7 @@ public class ChoreServiceTests
                 .WithOwner()
                 .WithStartDate(DateTime.UtcNow)
                 .BuildAsync();
-        var request = new UpdateChoreScheduleRequest(chore.Id, 
+        var request = new UpdateChoreScheduleRequest(chore.Id,
                 EndDate: DateTime.UtcNow.Date - TimeSpan.FromDays(1));
         using var context = new Context(options);
 

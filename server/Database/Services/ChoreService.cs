@@ -10,21 +10,19 @@ using Shared.Networking.Packets;
 using Privileges = Database.Services.ChorePermissionService.Privileges;
 
 namespace Database.Services;
-//todo: needs shared methods
-//todo: needs queue
 
 //todo: assigned date for chorelog?
 //TODO: add created and deleted logs as well as logs for other actions
 //Todo: maybe save ownerId and chore name in logs as well as who did action
-//TODO: create and handle skip requests (maybe add skip log option for deleting queue entry)
 
-//todo: split chor service into multiple files and maybe services
+//TODO: create and handle skip requests (maybe add skip log option for deleting queue entry)
 
 //todo: maybe move duration and interval to queue items?
 //TODO: background service who will call method to cleanup missed tasks
+
 public class ChoreService(Context db, ChoreQueueService qServ, ChorePermissionService pServ)
 {
-    #region Core chore management
+    //todo: log it
     public async Task<Result<Chore>> CreateChoreAsync
         (int ownerId, CreateChoreRequest request, CancellationToken token = default)
     {
@@ -41,7 +39,7 @@ public class ChoreService(Context db, ChoreQueueService qServ, ChorePermissionSe
             AvatarUrl = request.AvatarUrl, //todo: save in server
         };
 
-        var result = ChangeChoreScheduleIfValid(chore, request);
+        var result = await ChangeChoreScheduleIfValidAsync(chore, request, token);
         if (!result.IsSuccess)
             return Result<Chore>.FromFailedResult(result);
 
@@ -58,6 +56,7 @@ public class ChoreService(Context db, ChoreQueueService qServ, ChorePermissionSe
         return Result<Chore>.Success(chore);
     }
 
+    //todo: log it
     public async Task<Result> DeleteChoreAsync
         (int userId, int choreId, CancellationToken token = default)
     {
@@ -94,6 +93,7 @@ public class ChoreService(Context db, ChoreQueueService qServ, ChorePermissionSe
                 : Result.Fail(ServiceError.DatabaseError, "Could not update chore details");  //should never happen
     }
 
+    //todo: test more
     public async Task<Result> UpdateScheduleAsync
         (int userId, UpdateChoreScheduleRequest request, CancellationToken token = default)
     {
@@ -112,57 +112,28 @@ public class ChoreService(Context db, ChoreQueueService qServ, ChorePermissionSe
             return Result.Fail(ServiceError.InvalidInput, "Request is empty");
 
         using var transaction = await db.Database.BeginTransactionAsync(token);
-        if (request.Interval.HasValue)
-        {
-            chore.Interval = request.Interval.Value;
-            shouldRegenerateQueue = true;
-        }
-        if (request.Duration.HasValue)
-        {
-            chore.Duration = request.Duration.Value;
-            shouldRegenerateQueue = true;
-        }
 
-        if (request.EndDate.HasValue)
-        {
-            if (request.EndDate <= chore.StartDate)
-            {
-                return Result.Fail(ServiceError.InvalidInput,
-                        "End date can't be before start date");
-            }
-            var dates = db.ChoreLogs
-                .Where(l => l.ChoreId == request.ChoreId)
-                .OrderBy(d => d)
-                .Select(l => l.CompletedAt);
-            DateTime? lastLogDate = await dates.AnyAsync()
-                ? await dates.FirstAsync()
-                : null;
-            if (lastLogDate.HasValue && request.EndDate <= lastLogDate)
-            {
-                return Result.Fail(ServiceError.InvalidInput,
-                        "End date can't be before previousely completed chores");
-            }
+        var updateResult = await ChangeChoreScheduleIfValidAsync(chore, request, token);
+        if (!updateResult.IsSuccess) return updateResult;
 
-            if (!shouldRegenerateQueue)
-            {
-                await db.ChoreQueue
-                    .Where(q => q.ChoreId == request.ChoreId)
-                    .Where(q => q.ScheduledDate >= request.EndDate)
-                    .ExecuteDeleteAsync(token);
-            }
-
-            chore.EndDate = request.EndDate;
-        }
+        bool shouldRegenerate = request.Interval.HasValue || request.Duration.HasValue;
 
         if (shouldRegenerateQueue)
         {
             await qServ.RegenerateQueueAsync(chore, token);
         }
+        else if (request.EndDate.HasValue)
+        {
+            await db.ChoreQueue
+                .Where(q => q.ChoreId == request.ChoreId)
+                .Where(q => q.ScheduledDate >= request.EndDate)
+                .ExecuteDeleteAsync(token);
+        }
 
         await db.SaveChangesAsync(token);
         await transaction.CommitAsync(token);
 
-        return Result<Chore>.Success(chore);
+        return Result.Success();
     }
 
     //todo: test it
@@ -273,14 +244,6 @@ public class ChoreService(Context db, ChoreQueueService qServ, ChorePermissionSe
     }
 
     //todo: test it
-    private int? GetNextMemberIdx(Chore chore, int count = 1, CancellationToken token = default)
-    {
-        Debug.Assert(count >= 1);
-        int totalWorkers = chore.Members.Count(m => m.RotationOrder.HasValue);
-        return (chore.CurrentQueueMemberIdx + count) % totalWorkers;
-    }
-
-    //todo: test it
     public async Task ProcessMissedChoresAsync(CancellationToken token = default)
     {
         var missedItems = await db.ChoreQueue
@@ -318,14 +281,25 @@ public class ChoreService(Context db, ChoreQueueService qServ, ChorePermissionSe
 
         await db.SaveChangesAsync(token);
     }
-    #endregion
 
-    private Result ChangeChoreScheduleIfValid(Chore chore, CreateChoreRequest request)
-        => ChangeChoreScheduleIfValid(chore, new Schedule(request));
-    private Result ChangeChoreScheduleIfValid(Chore chore, UpdateChoreScheduleRequest request)
-        => ChangeChoreScheduleIfValid(chore, new Schedule(request));
-    private Result ChangeChoreScheduleIfValid(Chore chore, Schedule schedule)
+    //todo: test it
+    private int? GetNextMemberIdx(Chore chore, int count = 1, CancellationToken token = default)
     {
+        Debug.Assert(count >= 1);
+        int totalWorkers = chore.Members.Count(m => m.RotationOrder.HasValue);
+        return (chore.CurrentQueueMemberIdx + count) % totalWorkers;
+    }
+
+    private async Task<Result> ChangeChoreScheduleIfValidAsync
+        (Chore chore, CreateChoreRequest request, CancellationToken token = default)
+        => await ChangeChoreScheduleIfValidAsync(chore, new Schedule(request), token);
+    private async Task<Result> ChangeChoreScheduleIfValidAsync
+        (Chore chore, UpdateChoreScheduleRequest request, CancellationToken token = default)
+        => await ChangeChoreScheduleIfValidAsync(chore, new Schedule(request), token);
+    private async Task<Result> ChangeChoreScheduleIfValidAsync
+        (Chore chore, Schedule schedule, CancellationToken token = default)
+    {
+        TimeSpan minDuration = TimeSpan.FromHours(1);
         if (schedule.StartDate.HasValue)
         {
             if (DateTime.UtcNow.Date > schedule.StartDate.Value.Date)
@@ -350,11 +324,24 @@ public class ChoreService(Context db, ChoreQueueService qServ, ChorePermissionSe
                 return Result
                     .Fail(ServiceError.InvalidInput, "End date can't be before start date");
             }
+
+            var dates = db.ChoreLogs
+                .Where(l => l.ChoreId == chore.Id)
+                .OrderBy(d => d)
+                .Select(l => l.CompletedAt);
+            DateTime? lastLogDate = await dates.AnyAsync(token)
+                ? await dates.FirstAsync(token)
+                : null;
+            if (lastLogDate.HasValue && schedule.EndDate <= lastLogDate)
+            {
+                return Result.Fail(ServiceError.InvalidInput,
+                        "End date can't be before previousely completed chores");
+            }
         }
 
         if (schedule.Duration.HasValue)
         {
-            if (schedule.Duration == TimeSpan.Zero)
+            if (schedule.Duration <= minDuration)
             {
                 return Result
                     .Fail(ServiceError.InvalidInput, "Duration can't be zero");
@@ -397,5 +384,4 @@ public class ChoreService(Context db, ChoreQueueService qServ, ChorePermissionSe
             Interval = chore.Interval;
         }
     }
-
 }
