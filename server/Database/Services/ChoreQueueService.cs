@@ -10,7 +10,6 @@ using Shared.Networking;
 using Privileges = Database.Services.ChorePermissionService.Privileges;
 
 namespace Database.Services;
-//todo: needs shared methods
 
 public class ChoreQueueService(Context db, ChorePermissionService pServ)
 {
@@ -66,9 +65,11 @@ public class ChoreQueueService(Context db, ChorePermissionService pServ)
                     ? DateTime.UtcNow
                     : chore.StartDate);
 
+        if (chore.EndDate.HasValue && (date > chore.EndDate.Value))
+            return Result.Fail(ServiceError.Conflict, "Can't extend queue past end date");
         for (int i = 0; i < entryCount; i++)
         {
-            if (chore.EndDate.HasValue && date < chore.EndDate)
+            if (chore.EndDate.HasValue && (date > chore.EndDate.Value))
                 break;
             chore.QueueItems.Add(new ChoreQueue
             {

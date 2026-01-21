@@ -107,6 +107,60 @@ public class ChoreQueueServiceTests
     }
 
     [Fact]
+    public async Task ExtendQueue_Works_With_Entry_Count()
+    {
+        var (connection, options) = await DbTestHelper.SetupTestDbAsync();
+        using var context = new Context(options);
+        Chore chore = await new DbTestChoreBuilder(context)
+            .WithMember("first", 0)
+            .WithMember("second", 1)
+            .WithOwner("third", 2)
+            .WithDuration(TimeSpan.FromHours(2))
+            .WithInterval(TimeSpan.FromMinutes(30))
+            .BuildAsync();
+        int generatedEntryCount = 5;
+        Assert.Empty(chore.QueueItems);
+        Assert.True((await DbTestHelper
+                    .GetChoreQueueService(context)
+                    .ExtendQueueFromEntryCountAsync(chore, generatedEntryCount))
+                .IsSuccess);
+        Assert.Equal(generatedEntryCount, chore.QueueItems.Count);
+        var receivedOrder = chore.QueueItems
+            .OrderBy(i => i.ScheduledDate)
+            .Select(i => chore.Members
+                    .First(m => m.UserId == i.AssignedMemberId).RotationOrder);
+        Assert.Equal([0, 1, 2, 0, 1], receivedOrder);
+    }
+
+    [Fact]
+    public async Task ExtendQueue_Doesnt_Extend_Past_End_Date()
+    {
+        var (connection, options) = await DbTestHelper.SetupTestDbAsync();
+        using var context = new Context(options);
+        var choreDuration = TimeSpan.FromHours(5);
+        Chore chore = await new DbTestChoreBuilder(context)
+            .WithMember("first", 0)
+            .WithMember("second", 1)
+            .WithOwner("third", 2)
+            .WithDuration(TimeSpan.FromHours(1))
+            .WithEndDate(DateTime.UtcNow + choreDuration)
+            .WithStartDate(DateTime.UtcNow)
+            .BuildAsync();
+        int requestedExtendEntryCount = choreDuration.Hours + 2;
+        Assert.Empty(chore.QueueItems);
+        Assert.True((await DbTestHelper
+                    .GetChoreQueueService(context)
+                    .ExtendQueueFromEntryCountAsync(chore, requestedExtendEntryCount))
+                .IsSuccess);
+        Assert.Equal(choreDuration.Hours, chore.QueueItems.Count);
+        var receivedOrder = chore.QueueItems
+            .OrderBy(i => i.ScheduledDate)
+            .Select(i => chore.Members
+                    .First(m => m.UserId == i.AssignedMemberId).RotationOrder);
+        Assert.Equal([0, 1, 2, 0, 1], receivedOrder);
+    }
+
+    [Fact]
     public async Task SwapQueueItems_Swaps_Dates()
     {
         var (connection, options) = await DbTestHelper.SetupTestDbAsync();
