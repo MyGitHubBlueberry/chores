@@ -398,13 +398,28 @@ public class ChoreQueueService(Context db, ChorePermissionService pServ)
     {
         var check = await pServ.ExistsAndSufficientPrivilegesAsync
             (choreId, requesterId, Privileges.Admin);
+        Chore chore = await db.Chores
+            .Include(ch => ch.QueueItems)
+            .FirstAsync(ch => ch.Id == choreId);
         if (!check.IsSuccess) return check;
+        if (!chore.QueueItems.Any(i => i.Id == queueEntryId))
+            return Result.NotFound("Requested queue entry not found");
+        var dates = chore.QueueItems
+            .OrderBy(i => i.ScheduledDate)
+            .SkipWhile(i => i.Id != queueEntryId)
+            .Select(i => i.ScheduledDate)
+            .Take(2).ToArray();
+        if (dates.Count() != 2)
+            return Result.Success(); //no need to change interval, because requestedQueueEntry is last
+        var exInterval = (dates[0] + chore.Duration - dates[1]).Duration();
+        var deltaInterval = exInterval - interval;
+        if (deltaInterval == TimeSpan.Zero)
+            return Result.Success();
         await db.ChoreQueue
             .Where(q => q.ChoreId == choreId)
             .OrderBy(q => q.ScheduledDate)
-            .SkipWhile(q => q.Id != queueEntryId)
-            .Skip(1)
-            .ForEachAsync(q => q.ScheduledDate += interval, token);
+            .Where(q => q.ScheduledDate > dates[0])
+            .ForEachAsync(q => q.ScheduledDate -= deltaInterval, token);
         RemoveTrailingQueueEntries(await db.Chores
                 .Include(ch => ch.QueueItems)
                 .FirstAsync(ch => ch.Id == choreId, token));

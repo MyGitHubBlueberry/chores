@@ -677,4 +677,37 @@ public class ChoreQueueServiceTests
             .Count();
         Assert.Equal(member1Count, member2Count);
     }
+
+    [Fact]
+    public async Task ChangeQueueEntryInterval_Changes_Interval()
+    {
+        var (connection, options) = await DbTestHelper.SetupTestDbAsync();
+        using var context = new Context(options);
+        var interval = TimeSpan.FromHours(1);
+        Chore chore = await new DbTestChoreBuilder(context)
+                .WithOwner("Owner", 0)
+                .WithInterval(interval)
+                .WithDuration(TimeSpan.FromHours(1))
+                .BuildAsync();
+
+        Assert.True((await DbTestHelper.GetChoreQueueService(context)
+                .ExtendQueueFromEntryCountAsync(chore, 3)).IsSuccess);
+        var recordedEntryDates = chore.QueueItems
+            .Select(i => i.ScheduledDate)
+            .Order().Skip(1).ToList();
+        var firstEntryId =chore.QueueItems
+            .OrderBy(i => i.ScheduledDate)
+            .Select(i => i.Id)
+            .First();
+        var deltaInterval = TimeSpan.FromMinutes(30);
+        var newInterval = interval + deltaInterval;
+        Assert.True((await DbTestHelper.GetChoreQueueService(context)
+                .ChangeQueueEntryIntervalAsync
+                    (chore.Id, chore.OwnerId, firstEntryId, newInterval))
+                .IsSuccess);
+        var recievedEntryDatesOffsetByDeltaInterval = chore.QueueItems
+            .Select(i => i.ScheduledDate - deltaInterval)
+            .Order().Skip(1).ToList();
+        Assert.Equal(recordedEntryDates, recievedEntryDatesOffsetByDeltaInterval);
+    }
 }
