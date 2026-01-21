@@ -12,7 +12,6 @@ namespace Database.Services;
 public class ChoreMemberService
     (Context db, ChoreQueueService qServ, ChoreService cServ, ChorePermissionService pServ)
 {
-    //TODO: test it better
     //TODO: test for queue
     //TODO: make insert members in queue
     public async Task<Result> AddMembersAsync
@@ -79,9 +78,10 @@ public class ChoreMemberService
         return Result.Success();
     }
 
+    //TODO: test for queue
     public async Task<Result> DeleteMemberAsync
         (int choreId, int requesterId, int targetUserId, CancellationToken token = default)
-   {
+    {
         var chore = await db.Chores
             .Include(c => c.Members)
             .FirstOrDefaultAsync(c => c.Id == choreId, token);
@@ -125,6 +125,7 @@ public class ChoreMemberService
         return Result.Success();
     }
 
+    //TODO: refactor to request
     public async Task<Result> SetAdminStatusAsync
         (int choreId, int requesterId, int targetId, bool isAdmin, CancellationToken token = default)
     {

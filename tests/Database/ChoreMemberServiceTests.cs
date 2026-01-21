@@ -185,6 +185,52 @@ public class ChoreMemberServiceTests
     }
 
     [Fact]
+    public async Task AddMembers_Fixes_Rotation_Order()
+    {
+        var (connection, options) = await DbTestHelper.SetupTestDbAsync();
+        MemberStatus stasus = new MemberStatus(IsAdmin: false, RotationOrder: 0);
+        var dict = new Dictionary<string, MemberStatus>();
+        Chore chore;
+        string[] usernames = {
+            "test",
+            "hello world",
+            "asldkjdsfjkl",
+            "123",
+            "name"
+        };
+        using (var context = new Context(options))
+        {
+            chore = await new DbTestChoreBuilder(new Context(options))
+                .WithOwner()
+                .BuildAsync();
+            await context.Users
+                .AddRangeAsync(usernames
+                        .Select(u =>
+                        {
+                            dict.Add(u, stasus);
+                            return DbTestHelper.CreateUser(u);
+                        }));
+            await context.SaveChangesAsync();
+        }
+        using (var context = new Context(options))
+        {
+            var request = new AddMembersRequest(chore.Id, dict);
+            Assert.True((await DbTestHelper.GetChoreMemberService(context)
+                .AddMembersAsync(chore.OwnerId, request)).IsSuccess);
+        }
+        using (var context = new Context(options))
+        {
+            var expectedIdxes = usernames.Select((_, idx) => idx);
+            var resultInxes = context.ChoreMembers
+                .Where(m => m.RotationOrder.HasValue)
+                .Select(m => m.RotationOrder!.Value)
+                .Order();
+            Assert.Equal(expectedIdxes.Count(), resultInxes.Count());
+            Assert.Equal(expectedIdxes, resultInxes);
+        }
+    }
+
+    [Fact]
     public async Task DeleteMember_Deletes_Member()
     {
         var (connection, options) = await DbTestHelper.SetupTestDbAsync();
