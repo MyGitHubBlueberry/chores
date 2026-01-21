@@ -299,6 +299,37 @@ public class ChoreMemberServiceTests
     }
 
     [Fact]
+    public async Task 
+        DeleteMember_Sets_Rotation_Order_To_Null_And_Pauses_Chore_If_After_Delete_Queue_Is_Empty()
+    {
+        var (connection, options) = await DbTestHelper.SetupTestDbAsync();
+        string removeMemberName = "removeMe";
+        int removeMemberRotationOrder = 0;
+        Chore chore = await new DbTestChoreBuilder(new Context(options))
+            .WithOwner("owner")
+            .WithMember(removeMemberName, removeMemberRotationOrder)
+            .BuildAsync();
+        int removeMemberId = chore.Members
+            .First(m => m.RotationOrder == removeMemberRotationOrder)
+            .UserId;
+        using (var context = new Context(options))
+        {
+            Assert.Equal(2, chore.Members.Count);
+            Assert.True((await DbTestHelper.GetChoreMemberService(context)
+                .DeleteMemberAsync(chore.Id, chore.OwnerId, removeMemberId)).IsSuccess);
+            chore.IsPaused = false;
+        }
+        using (var context = new Context(options))
+        {
+            chore = await context.Chores.Include(ch => ch.Members).FirstAsync();
+            Assert.Single(chore.Members);
+            Assert.Empty(context.ChoreMembers.Where(m => m.UserId == removeMemberId));
+            Assert.Null(chore.CurrentQueueMemberIdx);
+            Assert.True(chore.IsPaused);
+        }
+    }
+
+    [Fact]
     public async Task SetAdminStatusAsync_Owner_Can_Promote()
     {
         var (connection, options) = await DbTestHelper.SetupTestDbAsync();
