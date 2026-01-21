@@ -13,7 +13,6 @@ public class ChoreMemberService
     (Context db, ChoreQueueService qServ, ChoreService cServ, ChorePermissionService pServ)
 {
     //TODO: test it better
-    //TODO: test with some users being members
     //TODO: test for queue
     //TODO: make insert members in queue
     public async Task<Result> AddMembersAsync
@@ -80,7 +79,6 @@ public class ChoreMemberService
         return Result.Success();
     }
 
-    //TODO: test for rotation order
     public async Task<Result> DeleteMemberAsync
         (int choreId, int requesterId, int targetUserId, CancellationToken token = default)
    {

@@ -74,7 +74,7 @@ public class ChoreMemberServiceTests
 
         using (var context = new Context(options))
         {
-            Assert.Equal(expectedCount, await context.Users.CountAsync()); 
+            Assert.Equal(expectedCount, await context.Users.CountAsync());
             Assert.Single(chore.Members);
             Assert.True((await DbTestHelper.GetChoreMemberService(context)
                 .AddMembersAsync(chore.OwnerId, request)).IsSuccess);
@@ -267,6 +267,35 @@ public class ChoreMemberServiceTests
                 .DeleteMemberAsync(chore.Id, adminIds[0], adminIds[1])).IsSuccess);
         chore = await context.Chores.FirstAsync();
         Assert.Equal(3, chore.Members.Count);
+    }
+
+    [Fact]
+    public async Task DeleteMember_Adjusts_Rotation_Order()
+    {
+        var (connection, options) = await DbTestHelper.SetupTestDbAsync();
+        string removeMemberName = "removeMe";
+        int removeMemberRotationOrder = 1;
+        Chore chore = await new DbTestChoreBuilder(new Context(options))
+            .WithOwner("owner", 0)
+            .WithMember(removeMemberName, removeMemberRotationOrder)
+            .WithMember("member", 2)
+            .BuildAsync();
+        int removeMemberId = chore.Members
+            .First(m => m.RotationOrder == removeMemberRotationOrder)
+            .UserId;
+        using (var context = new Context(options))
+        {
+            Assert.Equal(3, chore.Members.Count);
+            Assert.True((await DbTestHelper.GetChoreMemberService(context)
+                .DeleteMemberAsync(chore.Id, chore.OwnerId, removeMemberId)).IsSuccess);
+        }
+        using (var context = new Context(options))
+        {
+            chore = await context.Chores.Include(ch => ch.Members).FirstAsync();
+            Assert.Equal(2, chore.Members.Count);
+            Assert.Empty(context.ChoreMembers.Where(m => m.UserId == removeMemberId));
+            Assert.Equal([0, 1], chore.Members.Select(m => m.RotationOrder).Order());
+        }
     }
 
     [Fact]

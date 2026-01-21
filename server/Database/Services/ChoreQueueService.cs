@@ -357,7 +357,7 @@ public class ChoreQueueService(Context db, ChorePermissionService pServ)
         db.ChoreQueue.RemoveRange(chore.QueueItems
                 .Where(q => q.AssignedMemberId == memberId));
 
-        chore.CurrentQueueMemberIdx = orderedQueue.First().AssignedMemberId;
+        chore.CurrentQueueMemberIdx = orderedQueue.FirstOrDefault()?.AssignedMemberId;
         member.RotationOrder = null;
         await db.SaveChangesAsync(token);
         return Result.Success();
