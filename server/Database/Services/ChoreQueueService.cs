@@ -392,7 +392,6 @@ public class ChoreQueueService(Context db, ChorePermissionService pServ)
         return Result.Success();
     }
 
-    //todo: test it
     public async Task<Result> ChangeQueueEntryIntervalAsync
         (int choreId, int requesterId, int queueEntryId, TimeSpan interval, CancellationToken token = default)
     {
@@ -428,6 +427,7 @@ public class ChoreQueueService(Context db, ChorePermissionService pServ)
     }
 
     //todo: test it
+    // todo: test 
     public async Task<Result> CompleteCurrentQueueEntryAsync
         (int userId, int choreId, CancellationToken token = default)
     {
@@ -517,7 +517,7 @@ public class ChoreQueueService(Context db, ChorePermissionService pServ)
     }
 
     //todo: test it
-    private int? GetNextMemberIdx(Chore chore, int count = 1, CancellationToken token = default)
+    internal int? GetNextMemberIdx(Chore chore, int count = 1, CancellationToken token = default)
     {
         Debug.Assert(count >= 1);
         int totalWorkers = chore.Members.Count(m => m.RotationOrder.HasValue);
