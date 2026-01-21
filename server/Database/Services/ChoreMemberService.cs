@@ -13,8 +13,6 @@ public class ChoreMemberService
     (Context db, ChoreQueueService qServ, ChoreService cServ, ChorePermissionService pServ)
 {
     //TODO: test it better
-    //TODO: test with valid data
-    //TODO: test with some users not existing
     //TODO: test with some users being members
     //TODO: test for queue
     //TODO: make insert members in queue

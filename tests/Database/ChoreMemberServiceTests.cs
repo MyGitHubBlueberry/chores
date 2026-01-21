@@ -84,6 +84,65 @@ public class ChoreMemberServiceTests
     }
 
     [Fact]
+    public async Task AddMembers_Dont_Add_If_User_Is_Missing()
+    {
+        var (connection, options) = await DbTestHelper.SetupTestDbAsync();
+        Chore chore;
+        User user;
+        string fakeUsername = "fakeUsername";
+        using (var context = new Context(options))
+        {
+            chore = await new DbTestChoreBuilder(context)
+                .WithOwner().BuildAsync();
+            user = await DbTestHelper.CreateAndAddUser("existing user", context);
+        }
+        using (var context = new Context(options))
+        {
+            MemberStatus stasus = new MemberStatus(IsAdmin: false, RotationOrder: null);
+            var dict = new Dictionary<string, MemberStatus>(1);
+            dict.Add(user.Username, stasus);
+            dict.Add(fakeUsername, stasus);
+            var request = new AddMembersRequest(chore.Id, dict);
+            var result = await DbTestHelper.GetChoreMemberService(context)
+                .AddMembersAsync(chore.OwnerId, request);
+            Assert.False(result.IsSuccess);
+            Assert.Equal(ServiceError.NotFound, result.Error);
+            Assert.Single(chore.Members); //only owner
+        }
+    }
+
+    [Fact]
+    public async Task AddMembers_Dont_Add_If_User_Is_Member()
+    {
+        var (connection, options) = await DbTestHelper.SetupTestDbAsync();
+        Chore chore;
+        User user;
+        string memberUsername = "test";
+        using (var context = new Context(options))
+        {
+            chore = await new DbTestChoreBuilder(context)
+                .WithOwner()
+                .WithMember(memberUsername)
+                .BuildAsync();
+            user = await DbTestHelper.CreateAndAddUser("existing user", context);
+        }
+        using (var context = new Context(options))
+        {
+            MemberStatus stasus = new MemberStatus(IsAdmin: false, RotationOrder: null);
+            var dict = new Dictionary<string, MemberStatus>(1);
+            dict.Add(user.Username, stasus);
+            dict.Add(memberUsername, stasus);
+            int countBefore = chore.Members.Count;
+            var request = new AddMembersRequest(chore.Id, dict);
+            var result = await DbTestHelper.GetChoreMemberService(context)
+                .AddMembersAsync(chore.OwnerId, request);
+            Assert.False(result.IsSuccess);
+            Assert.Equal(ServiceError.Conflict, result.Error);
+            Assert.Equal(countBefore, chore.Members.Count);
+        }
+    }
+
+    [Fact]
     public async Task AddMembers_Rejects_Request_Without_Members()
     {
         var (connection, options) = await DbTestHelper.SetupTestDbAsync();
