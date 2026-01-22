@@ -803,7 +803,7 @@ public class ChoreQueueServiceTests
         Assert.Equal(memberCount, anotherChore.QueueItems.Count);
         Assert.NotEmpty(chore.Logs);
         Assert.NotEmpty(anotherChore.Logs);
-        Assert.False(chore.QueueItems.Any(i => i.ScheduledDate < chore.StartDate));
-        Assert.False(anotherChore.QueueItems.Any(i => i.ScheduledDate < chore.StartDate));
+        Assert.DoesNotContain(chore.QueueItems, i => i.ScheduledDate < chore.StartDate);
+        Assert.DoesNotContain(anotherChore.QueueItems, i => i.ScheduledDate < chore.StartDate);
     }
 }
