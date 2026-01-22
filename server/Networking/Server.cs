@@ -2,11 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
-using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Networking.Routing;
-using Shared;
 using Shared.Networking;
 
 
@@ -87,7 +85,7 @@ public class Server : IDisposable
             Console.WriteLine("Unknown request");
             return false;
         }
-        return await handler.Handle(stream, packet, token);
+        return await handler.HandleAsync(stream, packet, token);
     }
 
     public static bool IsPortAvailable(int port)

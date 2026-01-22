@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Shared.Database.Models;
+using Shared.Encryption;
 using Shared.Networking;
 using Shared.Networking.Packets;
 
@@ -12,21 +13,26 @@ namespace Database.Services;
 
 public class UserService(Context db, CancellationToken token)
 {
-    //TODO: change password to be hashed
-    //TODO: maybe switch to records in parameters?
-    public async Task<Result<User>> CreateUserAsync(RegisterRequest request)
+    public async Task<Result<User>> RegisterAsync(RegisterRequest request)
     {
-        if (await db.Users.AnyAsync(u => u.Username == request.username, token))
+        if (await db.Users.AnyAsync(u => u.Username == request.Username, token))
             return Result<User>.Fail(ServiceError.Conflict, "User already exists");
 
-        User user = new User
-        {
-            Username = request.username,
-            Password = Encoding.UTF8.GetBytes(request.password) //temporary
-        };
+        User user = new User(request);
         db.Users.Add(user);
         await db.SaveChangesAsync(token);
 
+        return Result<User>.Success(user);
+    }
+
+    public async Task<Result<User>> LoginAsync(LoginRequest request)
+    {
+        var userResult = await GetByNameAsync(request.Username);
+        if (!userResult.IsSuccess || userResult.Value is null)
+            return userResult;
+        User user = userResult.Value;
+        if (!PasswordHasher.Verify(request.Password, user.PasswordHash))
+            return Result<User>.Forbidden("Wrong password");
         return Result<User>.Success(user);
     }
 

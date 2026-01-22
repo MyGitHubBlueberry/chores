@@ -2,7 +2,7 @@ using Shared.Database.Models;
 
 namespace Shared.Networking.Packets;
 
-public record LoginRequest(string username, string passwordHash);
-public record LoginResponce(Result<User> result);
-public record RegisterRequest(string username, string passwordHash);
-public record RegisterResponce(Result<User> result);
+public record LoginRequest(string Username, string Password);
+public record LoginResponce(Result<User> Result);
+public record RegisterRequest(string Username, string Password);
+public record RegisterResponce(Result<User> Result);
