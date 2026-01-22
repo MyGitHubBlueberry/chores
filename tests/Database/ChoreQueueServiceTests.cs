@@ -759,4 +759,51 @@ public class ChoreQueueServiceTests
         Assert.Equal(0, DbTestHelper.GetChoreQueueService(context).GetNextMemberIdx(chore));
         Assert.Equal(1, DbTestHelper.GetChoreQueueService(context).GetNextMemberIdx(chore, 2));
     }
+
+    [Fact]
+    public async Task ProcessMissedQueueEntriesAsync_Works()
+    {
+        var (connection, options) = await DbTestHelper.SetupTestDbAsync();
+        using var context = new Context(options);
+        var memberCount = 5;
+        var duration = TimeSpan.FromHours(1);
+        var offset = duration * (memberCount + 1);
+        Chore chore = await new DbTestChoreBuilder(context)
+            .WithOwner("owner", 0)
+            .WithMember("member1", 1)
+            .WithMember("member2", 2)
+            .WithMember("member3", 3)
+            .WithMember("member4", 4)
+            .WithDuration(duration)
+            .BuildAsync();
+        Chore anotherChore = await new DbTestChoreBuilder(context)
+            .WithOwner("anotherOwner", 0)
+            .WithMember("anotherMember1", 1)
+            .WithMember("anotherMember2", 2)
+            .WithMember("anotherMember3", 3)
+            .WithMember("anotherMember4", 4)
+            .WithDuration(duration)
+            .BuildAsync();
+        var service = DbTestHelper.GetChoreQueueService(context);
+        Assert.True((await service
+                .ExtendQueueFromEntryCountAsync(chore.Id, memberCount)).IsSuccess);
+        Assert.True((await service
+                .ExtendQueueFromEntryCountAsync(anotherChore.Id, memberCount)).IsSuccess);
+        foreach (var item in chore.QueueItems) 
+        {
+            item.ScheduledDate -= offset;
+        }
+        foreach (var item in anotherChore.QueueItems) 
+        {
+            item.ScheduledDate -= offset;
+        }
+        await context.SaveChangesAsync();
+        await service.ProcessMissedQueueEntriesAsync();
+        Assert.Equal(memberCount, chore.QueueItems.Count);
+        Assert.Equal(memberCount, anotherChore.QueueItems.Count);
+        Assert.NotEmpty(chore.Logs);
+        Assert.NotEmpty(anotherChore.Logs);
+        Assert.False(chore.QueueItems.Any(i => i.ScheduledDate < chore.StartDate));
+        Assert.False(anotherChore.QueueItems.Any(i => i.ScheduledDate < chore.StartDate));
+    }
 }

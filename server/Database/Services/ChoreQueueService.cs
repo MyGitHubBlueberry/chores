@@ -468,12 +468,12 @@ public class ChoreQueueService(Context db, ChorePermissionService pServ)
         return Result.Success();
     }
 
-    //todo: test it
     public async Task ProcessMissedQueueEntriesAsync(CancellationToken token = default)
     {
         var missedItems = await db.ChoreQueue
             .Include(q => q.Chore)
-            .Where(q => q.ScheduledDate + q.Chore!.Duration < DateTime.UtcNow)
+            .AsAsyncEnumerable()
+            .Where(q => (q.ScheduledDate + q.Chore!.Duration) < DateTime.UtcNow)
             .ToListAsync(token);
         if (missedItems.Count == 0) return;
 
@@ -487,9 +487,8 @@ public class ChoreQueueService(Context db, ChorePermissionService pServ)
                     UserId = i.AssignedMemberId,
                 }), token);
 
-        await db.ChoreQueue
-            .Where(q => q.ScheduledDate + q.Chore!.Duration < DateTime.UtcNow)
-            .ExecuteDeleteAsync(token);
+        db.ChoreQueue.RemoveRange(missedItems);
+        await db.SaveChangesAsync(token);
 
         var choreIds = missedItems.Select(i => i.ChoreId).Distinct();
         missedItems
