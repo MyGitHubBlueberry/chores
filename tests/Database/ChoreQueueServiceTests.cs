@@ -554,8 +554,6 @@ public class ChoreQueueServiceTests
         Assert.Empty(chore.QueueItems);
     }
 
-    //todo: add tests for regenerate queue after
-    // swaps, interval change, deletions, insertions
     [Fact]
     public async Task RegenerateQueue_Regenerates_Changed_Queue()
     {
@@ -695,7 +693,7 @@ public class ChoreQueueServiceTests
         var recordedEntryDates = chore.QueueItems
             .Select(i => i.ScheduledDate)
             .Order().Skip(1).ToList();
-        var firstEntryId =chore.QueueItems
+        var firstEntryId = chore.QueueItems
             .OrderBy(i => i.ScheduledDate)
             .Select(i => i.Id)
             .First();
@@ -709,5 +707,56 @@ public class ChoreQueueServiceTests
             .Select(i => i.ScheduledDate - deltaInterval)
             .Order().Skip(1).ToList();
         Assert.Equal(recordedEntryDates, recievedEntryDatesOffsetByDeltaInterval);
+    }
+
+    [Fact]
+    public async Task CompleteCurrentQueueEntry_Completes_Entry()
+    {
+        var (connection, options) = await DbTestHelper.SetupTestDbAsync();
+        using var context = new Context(options);
+        var interval = TimeSpan.FromHours(1);
+        Chore chore = await new DbTestChoreBuilder(context)
+                .WithOwner("Owner", 0)
+                .WithInterval(interval)
+                .WithDuration(TimeSpan.FromHours(1))
+                .BuildAsync();
+
+        var queueItemCount = 3;
+        chore.IsPaused = false;
+        Assert.True((await DbTestHelper.GetChoreQueueService(context)
+                .ExtendQueueFromEntryCountAsync(chore, queueItemCount)).IsSuccess);
+        var firstEntryDate = chore.QueueItems
+            .Select(i => i.ScheduledDate)
+            .Order().First();
+        Assert.True((await DbTestHelper.GetChoreQueueService(context)
+                .CompleteCurrentQueueEntryAsync(chore.OwnerId, chore.Id))
+                .IsSuccess);
+        Assert.Equal(queueItemCount, chore.QueueItems.Count());
+        var firstEntryDateAfterCompetion = chore.QueueItems
+            .Select(i => i.ScheduledDate)
+            .Order().First();
+        Assert.Null(chore.QueueItems
+                .FirstOrDefault(i => i.ScheduledDate == firstEntryDate));
+        Assert.Equal(firstEntryDate + interval + chore.Duration,
+                firstEntryDateAfterCompetion); ;
+    }
+
+    [Fact]
+    public async Task GetNextMemberIdx_Returns_Right_Idx()
+    {
+        var (connection, options) = await DbTestHelper.SetupTestDbAsync();
+        using var context = new Context(options);
+        Chore chore = await new DbTestChoreBuilder(context)
+            .WithOwner("owner", 0)
+            .WithMember("member1", 1)
+            .WithMember("member2", 2)
+            .WithMember("member3", 3)
+            .WithMember("member4", 4)
+            .BuildAsync();
+        chore.CurrentQueueMemberIdx = 0;
+        Assert.Equal(1, DbTestHelper.GetChoreQueueService(context).GetNextMemberIdx(chore));
+        chore.CurrentQueueMemberIdx = 4;
+        Assert.Equal(0, DbTestHelper.GetChoreQueueService(context).GetNextMemberIdx(chore));
+        Assert.Equal(1, DbTestHelper.GetChoreQueueService(context).GetNextMemberIdx(chore, 2));
     }
 }

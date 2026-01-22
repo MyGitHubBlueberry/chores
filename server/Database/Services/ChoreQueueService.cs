@@ -426,8 +426,6 @@ public class ChoreQueueService(Context db, ChorePermissionService pServ)
         return Result.Success();
     }
 
-    //todo: test it
-    // todo: test 
     public async Task<Result> CompleteCurrentQueueEntryAsync
         (int userId, int choreId, CancellationToken token = default)
     {
@@ -442,15 +440,17 @@ public class ChoreQueueService(Context db, ChorePermissionService pServ)
         if (chore.IsPaused) return Result
             .Fail(ServiceError.Conflict, "Can't complete chores while paused");
 
-        var queueItem = db.ChoreQueue
+        var queueItem = await db.ChoreQueue
+            .OrderBy(q => q.ScheduledDate)
             .Where(q => q.ChoreId == choreId)
-            .Where(q => q.AssignedMemberId == userId);
-        if (!await queueItem.AnyAsync(token))
+            .Where(q => q.AssignedMemberId == userId)
+            .FirstOrDefaultAsync(token);
+        if (queueItem is null)
             return Result.Forbidden();
-        if (await queueItem
-                .Where(q => q.ScheduledDate < DateTime.UtcNow)
-                .ExecuteDeleteAsync(token) == 0)
+        if (queueItem.ScheduledDate >= DateTime.UtcNow)
             return Result.Fail(ServiceError.Conflict, "Can't complete unstarted chore");
+
+        chore.QueueItems.Remove(queueItem);
         chore.Logs.Add(new ChoreLog
         {
             UserId = userId,
@@ -459,15 +459,6 @@ public class ChoreQueueService(Context db, ChorePermissionService pServ)
             ChoreId = chore.Id,
             Duration = chore.Duration,
         });
-
-        var dates = db.ChoreQueue
-            .Where(q => q.ChoreId == choreId)
-            .Select(q => q.ScheduledDate)
-            .OrderBy(d => d);
-
-        DateTime date = await dates.AnyAsync(token)
-            ? await dates.LastAsync(token)
-            : DateTime.UtcNow;
 
         chore.CurrentQueueMemberIdx = GetNextMemberIdx(chore);
         await ExtendQueueFromEntryCountAsync(chore, 1, token);
@@ -516,7 +507,6 @@ public class ChoreQueueService(Context db, ChorePermissionService pServ)
         await db.SaveChangesAsync(token);
     }
 
-    //todo: test it
     internal int? GetNextMemberIdx(Chore chore, int count = 1, CancellationToken token = default)
     {
         Debug.Assert(count >= 1);
