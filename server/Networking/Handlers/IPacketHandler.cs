@@ -7,5 +7,5 @@ namespace Networking.Handlers;
 
 public interface IPacketHandler
 {
-    Task<bool> Handle(NetworkStream stream, ReadPacket packet, CancellationToken token = default);
+    Task<bool> HandleAsync(NetworkStream stream, ReadPacket packet, CancellationToken token = default);
 }

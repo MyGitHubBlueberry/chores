@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Shared.Database.Models;
 using Shared.Networking;
+using Shared.Networking.Packets;
 
 namespace Database.Services;
 
@@ -13,15 +14,15 @@ public class UserService(Context db, CancellationToken token)
 {
     //TODO: change password to be hashed
     //TODO: maybe switch to records in parameters?
-    public async Task<Result<User>> CreateUserAsync(string username, string password)
+    public async Task<Result<User>> CreateUserAsync(RegisterRequest request)
     {
-        if (await db.Users.AnyAsync(u => u.Username == username, token))
+        if (await db.Users.AnyAsync(u => u.Username == request.username, token))
             return Result<User>.Fail(ServiceError.Conflict, "User already exists");
 
         User user = new User
         {
-            Username = username,
-            Password = Encoding.UTF8.GetBytes(password) //temporary
+            Username = request.username,
+            Password = Encoding.UTF8.GetBytes(request.password) //temporary
         };
         db.Users.Add(user);
         await db.SaveChangesAsync(token);
