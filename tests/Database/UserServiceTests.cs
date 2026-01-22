@@ -2,7 +2,9 @@ using Database;
 using Database.Services;
 using Microsoft.EntityFrameworkCore;
 using Shared.Database.Models;
+using Shared.Encryption;
 using Shared.Networking;
+using Shared.Networking.Packets;
 
 namespace Tests.Database;
 
@@ -10,53 +12,52 @@ namespace Tests.Database;
 public class UserServiceTests
 {
     [Fact]
-    public async Task CreateUser_Saves_To_DB()
+    public async Task Register_Saves_To_DB()
     {
         var (connection, options) = await DbTestHelper.SetupTestDbAsync();
-        string username = "test";
-        string password = "123";
+        var request = new RegisterRequest("test", "123");
 
         using (var context = new Context(options))
         {
             var service = new UserService(context, CancellationToken.None);
 
-            Result<User> userResult = await service.CreateUserAsync(username, password);
+            Result<User> userResult = await service.RegisterAsync(request);
 
             Assert.True(userResult.IsSuccess);
             Assert.NotNull(userResult.Value);
-            Assert.Equal(userResult.Value.Username, username);
+            Assert.Equal(userResult.Value.Username, request.Username);
+            Assert.True(PasswordHasher.Verify(request.Password, userResult.Value.PasswordHash));
         }
 
         using (var context = new Context(options))
         {
             var savedUser = await context.Users
-                .FirstOrDefaultAsync(u => u.Username == username);
+                .FirstOrDefaultAsync(u => u.Username == request.Username);
 
             Assert.NotNull(savedUser);
-            Assert.Equal(username, savedUser.Username);
+            Assert.Equal(request.Username, savedUser.Username);
         }
     }
 
     [Fact]
-    public async Task CreteUser_Cant_Create_Duplicate_User()
+    public async Task Register_Cant_Create_Duplicate_User()
     {
         var (connection, options) = await DbTestHelper.SetupTestDbAsync();
-        string username = "taken";
-        string password = "doesn't matter";
+        var request = new RegisterRequest("test", "123");
         using (var context = new Context(options))
         {
             var service = new UserService(context, CancellationToken.None);
-            var user = await service.CreateUserAsync(username, password);
+            var user = await service.RegisterAsync(request);
 
             Assert.True(user.IsSuccess);
             Assert.NotNull(user.Value);
-            Assert.Equal(user.Value.Username, username);
+            Assert.Equal(user.Value.Username, request.Username);
         }
 
         using (var context = new Context(options))
         {
             var service = new UserService(context, CancellationToken.None);
-            var user = await service.CreateUserAsync(username, password);
+            var user = await service.RegisterAsync(request);
 
             Assert.False(user.IsSuccess);
             Assert.Equal(ServiceError.Conflict, user.Error);
@@ -193,7 +194,7 @@ public class UserServiceTests
 
         using (var context = new Context(options))
         {
-            user = new User { Username = "Worker", Password = new byte[] { 1 } };
+            user = DbTestHelper.CreateUser("Worker");
             context.Users.Add(user);
             await context.SaveChangesAsync();
 

@@ -10,7 +10,7 @@ namespace Networking.Handlers;
 
 public class DebugHandler() : IPacketHandler
 {
-    public async Task<bool> Handle(NetworkStream stream, ReadPacket packet, CancellationToken token = default)
+    public async Task<bool> HandleAsync(NetworkStream stream, ReadPacket packet, CancellationToken token = default)
     {
         while (!token.IsCancellationRequested) {
             switch (packet.code) {

@@ -18,7 +18,11 @@ public class UserService(Context db, CancellationToken token)
         if (await db.Users.AnyAsync(u => u.Username == request.Username, token))
             return Result<User>.Fail(ServiceError.Conflict, "User already exists");
 
-        User user = new User(request);
+        User user = new User {
+            Username = request.Username,
+            PasswordHash = PasswordHasher.Hash(request.Password),
+        };
+
         db.Users.Add(user);
         await db.SaveChangesAsync(token);
 

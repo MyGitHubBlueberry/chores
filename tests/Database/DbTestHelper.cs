@@ -28,7 +28,7 @@ public static class DbTestHelper
     public static User CreateUser(string name) => new User
     {
         Username = name,
-        Password = [1],
+        PasswordHash = "1234",
     };
 
     public static async Task<User> CreateAndAddUser(string name, Context db)
