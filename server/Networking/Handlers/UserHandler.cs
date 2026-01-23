@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -18,9 +19,30 @@ public class UserHandler(UserService service) : IPacketHandler
             {
                 case OpCode.DeleteUser:
                     return await HandleUserDeletionAsync(context, packet, token);
+                case OpCode.GetUserById:
+                    return await HandleGetUserByIdAsync(context, packet, token);
             }
         }
         return false;
+    }
+
+    private async Task<bool> HandleGetUserByIdAsync
+        (ClientContext context, ReadPacket packet, CancellationToken token)
+    {
+        var request = JsonSerializer.Deserialize<GetUserByIdRequest>(packet.jsonData);
+        Debug.Assert(request is not null);
+        SendPacket<Result> sendPacket;
+        if (context.CurrentUser is null)
+        {
+            sendPacket = new(packet.code, Result.Fail(ServiceError.Conflict, "Log in first."));
+            await PacketProtocol.SendPacketAsync(context.Stream, sendPacket);
+            return true;
+        }
+        var result = await service
+            .GetByIdAsync(request.UserId);
+        sendPacket = new(packet.code, result);
+        await PacketProtocol.SendPacketAsync(context.Stream, sendPacket);
+        return true;
     }
 
     private async Task<bool> HandleUserDeletionAsync

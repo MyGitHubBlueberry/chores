@@ -9,7 +9,8 @@ public enum OpCode : byte
     Login,
     Register,
 
-    GetUser,
+    GetUserById,
+    GetUserByName,
     DeleteUser,
     GetOwnedChores,
     GetMemberships,
