@@ -9,8 +9,9 @@ public enum OpCode : byte
     Login,
     Register,
 
+    GetUser,
     DeleteUser,
-    GetOwnerChores,
+    GetOwnedChores,
     GetMemberships,
     GetAssociatedLogs,
 }

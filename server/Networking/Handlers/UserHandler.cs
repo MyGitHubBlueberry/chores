@@ -1,51 +1,47 @@
-// using System;
-// using System.Diagnostics;
-// using System.Net.Sockets;
-// using System.Text.Json;
-// using System.Threading;
-// using System.Threading.Tasks;
-// using Database.Services;
-// using Shared.Database.Models;
-// using Shared.Networking;
-// using Shared.Networking.Packets;
-//
-// namespace Networking.Handlers;
-//
-// public class UserHandler(UserService service) : IPacketHandler
-// {
-//     public async Task<bool> HandleAsync
-//         (NetworkStream stream, ReadPacket packet, CancellationToken token = default)
-//     {
-//         while (!token.IsCancellationRequested)
-//         {
-//             switch (packet.code)
-//             {
-//
-//             }
-//         }
-//         return false;
-//     }
-//
-//     public async Task<bool> ActAsync<T, Res>
-//         (NetworkStream stream, ReadPacket packet, Func<T, Task<Res>> func)
-//         where Res : Result
-//     {
-//         T? request;
-//         try
-//         {
-//             request = JsonSerializer.Deserialize<T>(packet.jsonData);
-//         }
-//         catch
-//         {
-//             return false;
-//         }
-//
-//         Debug.Assert(request != null);
-//
-//         var responce = await func.Invoke(request);
-//
-//         SendPacket<Result> sendPacket = new(packet.code, responce);
-//         await PacketProtocol.SendPacketAsync(stream, sendPacket);
-//         return responce.IsSuccess;
-//     }
-// }
+using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
+using Database.Services;
+using Shared.Networking;
+using Shared.Networking.Packets;
+
+namespace Networking.Handlers;
+
+public class UserHandler(UserService service) : IPacketHandler
+{
+    public async Task<bool> HandleAsync
+        (ClientContext context, ReadPacket packet, CancellationToken token = default)
+    {
+        while (!token.IsCancellationRequested)
+        {
+            switch (packet.code)
+            {
+                case OpCode.DeleteUser:
+                    return await HandleUserDeletionAsync(context, packet, token);
+            }
+        }
+        return false;
+    }
+
+    private async Task<bool> HandleUserDeletionAsync
+        (ClientContext context, ReadPacket packet, CancellationToken token = default)
+    {
+        var request = JsonSerializer.Deserialize<DeleteUserRequest>(packet.jsonData);
+        if (context.CurrentUser is null)
+        {
+            SendPacket<Result> sendPacket =
+                new(packet.code, Result.Fail(ServiceError.Conflict, "Log in first."));
+            await PacketProtocol.SendPacketAsync(context.Stream, sendPacket);
+            return true;
+        }
+        var result = await service
+            .DeleteUserAsync(context.CurrentUser.Id, context.CurrentUser.Id);
+        if (result.IsSuccess)
+        {
+            context.CurrentUser = null;
+            SendPacket<Result> sendPacket = new(packet.code, result);
+            await PacketProtocol.SendPacketAsync(context.Stream, sendPacket);
+        }
+        return true;
+    }
+}
