@@ -21,21 +21,11 @@ public class AuthHandler(UserService service) : IPacketHandler
             switch (packet.code)
             {
                 case OpCode.Login:
-                    {
-                        var request = JsonSerializer.Deserialize<LoginRequest>(packet.jsonData);
-                        Debug.Assert(request != null);
-
-                        var responce = await service.LoginAsync(request);
-
-                        RegisterResponce data = new(responce);
-                        SendPacket<RegisterResponce> sendPacket = new(packet.code, data);
-                        await PacketProtocol.SendPacketAsync(stream, sendPacket);
-                        return responce.IsSuccess;
-                    }
+                    return await ActAsync<LoginRequest, Result<User>>
+                        (stream, packet, service.LoginAsync);
                 case OpCode.Register:
-                    {
-                        await Test<RegisterRequest>(stream, packet, service.RegisterAsync);
-                    }
+                    return await ActAsync<RegisterRequest, Result<User>>
+                        (stream, packet, service.RegisterAsync);
                 default:
                     return false;
             }
@@ -43,8 +33,9 @@ public class AuthHandler(UserService service) : IPacketHandler
         return false;
     }
 
-    //todo: think about it
-    public async Task<bool> Test<T>(NetworkStream stream, ReadPacket packet, Func<T, Task<Result>> func)
+    public async Task<bool> ActAsync<T, Res>
+        (NetworkStream stream, ReadPacket packet, Func<T, Task<Res>> func)
+        where Res : Result
     {
         T? request;
         try
@@ -58,10 +49,8 @@ public class AuthHandler(UserService service) : IPacketHandler
 
         Debug.Assert(request != null);
 
-        //different function signatures
         var responce = await func.Invoke(request);
 
-        //different result return types
         SendPacket<Result> sendPacket = new(packet.code, responce);
         await PacketProtocol.SendPacketAsync(stream, sendPacket);
         return responce.IsSuccess;
