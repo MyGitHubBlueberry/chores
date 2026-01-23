@@ -1,9 +1,11 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Database.Services;
+using Shared.Database.Models;
 using Shared.Networking;
 using Shared.Networking.Packets;
 
@@ -19,15 +21,25 @@ public class UserHandler(UserService service) : IPacketHandler
             switch (packet.code)
             {
                 case OpCode.GetAssociatedLogs:
-                    return await HandleGetAssociatedLogsAsync(context, packet, token);
+                    return await Handle<GetLogsByUserIdRequest, ICollection<ChoreLog>>
+                        (context, packet, (req) => 
+                                service.GetAssociatedLogsByIdAsync(req.UserId), token);
                 case OpCode.GetMemberships:
-                    return await HandleGetMembershipsAsync(context, packet, token);
+                    return await Handle<GetMembershipsByIdRequest, ICollection<ChoreMember>>
+                        (context, packet, (req) => 
+                                service.GetMembershipsByIdAsync(req.UserId), token);
                 case OpCode.GetOwnedChores:
-                    return await HandleGetOwnedChoresAsync(context, packet, token);
+                    return await Handle<GetOwnedChoresByIdRequest, ICollection<Chore>>
+                        (context, packet, (req) => 
+                                service.GetOwnedChoresByIdAsync(req.UserId), token);
                 case OpCode.GetUserByName:
-                    return await HandleGetUserByNameAsync(context, packet, token);
+                    return await Handle<GetUserByNameRequest, User>
+                        (context, packet, (req) => 
+                                service.GetByNameAsync(req.Username), token);
                 case OpCode.GetUserById:
-                    return await HandleGetUserByIdAsync(context, packet, token);
+                    return await Handle<GetUserByIdRequest, User>
+                        (context, packet, (req) => 
+                                service.GetByIdAsync(req.UserId), token);
                 case OpCode.DeleteUser:
                     return await HandleUserDeletionAsync(context, packet, token);
             }
@@ -35,66 +47,14 @@ public class UserHandler(UserService service) : IPacketHandler
         return false;
     }
 
-    private async Task<bool> HandleGetAssociatedLogsAsync
-        (ClientContext context, ReadPacket packet, CancellationToken token)
+    private async Task<bool> Handle<Req, Res>
+        (ClientContext context, ReadPacket packet, Func<Req, Task<Result<Res>>> func, CancellationToken token)
+        where Req : Request
     {
-        var request = JsonSerializer.Deserialize<GetLogsByUserIdRequest>(packet.jsonData);
+        var request = JsonSerializer.Deserialize<Req>(packet.jsonData);
         Debug.Assert(request is not null);
         SendPacket<Result> sendPacket;
-        var result = await service
-            .GetAssociatedLogsByIdAsync(request.UserId);
-        sendPacket = new(packet.code, result);
-        await PacketProtocol.SendPacketAsync(context.Stream, sendPacket);
-        return true;
-    }
-
-    private async Task<bool> HandleGetMembershipsAsync
-        (ClientContext context, ReadPacket packet, CancellationToken token)
-    {
-        var request = JsonSerializer.Deserialize<GetMembershipsByIdRequest>(packet.jsonData);
-        Debug.Assert(request is not null);
-        SendPacket<Result> sendPacket;
-        var result = await service
-            .GetMembershipsByIdAsync(request.UserId);
-        sendPacket = new(packet.code, result);
-        await PacketProtocol.SendPacketAsync(context.Stream, sendPacket);
-        return true;
-    }
-
-    private async Task<bool> HandleGetOwnedChoresAsync
-        (ClientContext context, ReadPacket packet, CancellationToken token)
-    {
-        var request = JsonSerializer.Deserialize<GetOwnedChoresByIdRequest>(packet.jsonData);
-        Debug.Assert(request is not null);
-        SendPacket<Result> sendPacket;
-        var result = await service
-            .GetOwnedChoresByIdAsync(request.UserId);
-        sendPacket = new(packet.code, result);
-        await PacketProtocol.SendPacketAsync(context.Stream, sendPacket);
-        return true;
-    }
-
-    private async Task<bool> HandleGetUserByNameAsync
-        (ClientContext context, ReadPacket packet, CancellationToken token)
-    {
-        var request = JsonSerializer.Deserialize<GetUserByNameRequest>(packet.jsonData);
-        Debug.Assert(request is not null);
-        SendPacket<Result> sendPacket;
-        var result = await service
-            .GetByNameAsync(request.Username);
-        sendPacket = new(packet.code, result);
-        await PacketProtocol.SendPacketAsync(context.Stream, sendPacket);
-        return true;
-    }
-
-    private async Task<bool> HandleGetUserByIdAsync
-        (ClientContext context, ReadPacket packet, CancellationToken token)
-    {
-        var request = JsonSerializer.Deserialize<GetUserByIdRequest>(packet.jsonData);
-        Debug.Assert(request is not null);
-        SendPacket<Result> sendPacket;
-        var result = await service
-            .GetByIdAsync(request.UserId);
+        var result = await func.Invoke(request);
         sendPacket = new(packet.code, result);
         await PacketProtocol.SendPacketAsync(context.Stream, sendPacket);
         return true;
