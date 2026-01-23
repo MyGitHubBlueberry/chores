@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
+using Shared.Networking.Packets;
 
 namespace Shared.Networking;
 
@@ -82,6 +83,26 @@ public class PacketProtocol
 
         return new(code, Encoding.UTF8.GetString(payloadBuf));
     }
+
+    // public static async Task SendRequestPacketAsync
+    //     (NetworkStream stream, Request r) =>
+    //         await SendPacketAsync(stream, GetPacketFromRequest(r));
+    
+    private static OpCode CodeFromRequest(Request r) => r switch
+    {
+        RegisterRequest => OpCode.Register,
+        LoginRequest => OpCode.Login,
+        _ => throw new NotImplementedException()
+    };
+    //
+    // private static SendPacket<T> GetPacketFromRequest<T>(T r) where T : Request
+    // {
+    //     return new(CodeFromRequest(r), r);
+    // }
+    //
+    // public static async Task SendResponceResultPacketAsync
+    //     (NetworkStream stream, Result r) =>
+    //         await SendPacketAsync(stream, GetPacketFromRequest(r));
 }
 
 public record ReadPacket(OpCode code, string jsonData);
