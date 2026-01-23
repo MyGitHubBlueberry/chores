@@ -64,17 +64,18 @@ public class Server : IDisposable
     async Task HandleClientAsync(Socket client, CancellationToken token)
     {
         using NetworkStream stream = new NetworkStream(client);
+        var context = new ClientContext(stream);
         while (!token.IsCancellationRequested)
         {
             if (!await HandleClientPackets
-                    (await PacketProtocol.ReadPacket(stream, token), stream))
+                    (await PacketProtocol.ReadPacket(stream, token), context))
                 break;
         }
         client.Close();
         client.Dispose();
     }
 
-    private async Task<bool> HandleClientPackets(ReadPacket packet, NetworkStream stream)
+    private async Task<bool> HandleClientPackets(ReadPacket packet, ClientContext context)
     {
         if (packet.code == OpCode.Disconnect) {
             Console.WriteLine("Client disconnected");
@@ -85,7 +86,7 @@ public class Server : IDisposable
             Console.WriteLine("Unknown request");
             return false;
         }
-        return await handler.HandleAsync(stream, packet, token);
+        return await handler.HandleAsync(context, packet, token);
     }
 
     public static bool IsPortAvailable(int port)

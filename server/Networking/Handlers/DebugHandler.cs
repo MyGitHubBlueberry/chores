@@ -1,5 +1,4 @@
 using System;
-using System.Net.Sockets;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -10,7 +9,7 @@ namespace Networking.Handlers;
 
 public class DebugHandler() : IPacketHandler
 {
-    public async Task<bool> HandleAsync(NetworkStream stream, ReadPacket packet, CancellationToken token = default)
+    public async Task<bool> HandleAsync(ClientContext context, ReadPacket packet, CancellationToken token = default)
     {
         while (!token.IsCancellationRequested) {
             switch (packet.code) {
@@ -22,7 +21,7 @@ public class DebugHandler() : IPacketHandler
                     Console.WriteLine($"Recieved: {data.str}");
                     var test = new TestResponse("~" + data.str + "~");
                     SendPacket<TestResponse> responce = new(OpCode.Test, test);
-                    await PacketProtocol.SendPacketAsync(stream, responce);
+                    await PacketProtocol.SendPacketAsync(context.Stream, responce);
                     return true;
                 default:
                     Console.WriteLine("Couldn't handle");
