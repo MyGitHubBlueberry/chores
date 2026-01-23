@@ -85,11 +85,3 @@ public class PacketProtocol
 
 public record ReadPacket(OpCode code, string jsonData);
 public record SendPacket<T>(OpCode code, T data);
-
-public enum OpCode : byte
-{
-    Login,
-    Register,
-    Test,
-    Disconnect,
-}
