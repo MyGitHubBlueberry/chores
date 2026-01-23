@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Database.Services;
 using Networking.Handlers;
 using Shared.Networking;
 
@@ -16,6 +17,12 @@ public class RouterBuilder
         }
 
         return this;
+    }
+
+    public RouterBuilder WithAuthenticationHandler(UserService service)
+    {
+        var handler = new AuthHandler(service);
+        return this.WithHandler(handler, OpCode.Login, OpCode.Register);
     }
 
     public Router Build() 
