@@ -21,10 +21,14 @@ class Program
         using var db = new Database.Context();
 
         var userService = new UserService(db, cts.Token);
+        var permissionService = new ChorePermissionService(db);
+        var queueService = new ChoreQueueService(db, permissionService);
+        var choreService = new ChoreService(db, queueService, permissionService);
+        var memberService = new ChoreMemberService(db, queueService, choreService, permissionService);
 
         var router = new RouterBuilder()
-            .WithAuthenticationHandler(userService)
-            .WithHandler(new DebugHandler(), OpCode.Test)
+            .WithAllHandlers(queueService, userService, memberService, choreService)
+            .WithHandler(new DebugHandler())
             .Build();
 
         using Server server = new(port, router, cts.Token);

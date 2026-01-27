@@ -32,7 +32,12 @@ public class AuthHandler(UserService service) : IPacketHandler
         return false;
     }
 
-    private async Task<bool> HandleLoginAsync(ClientContext context, ReadPacket packet) 
+    public OpCode[] GetHandledCodes()
+    {
+        return [ OpCode.Login, OpCode.Register ];
+    }
+
+    private async Task<bool> HandleLoginAsync(ClientContext context, ReadPacket packet)
     {
         LoginRequest? request;
         try

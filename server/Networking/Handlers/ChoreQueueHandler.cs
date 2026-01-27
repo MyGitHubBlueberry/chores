@@ -71,6 +71,24 @@ public class ChoreQueueHandler(ChoreQueueService service) : IPacketHandler
         return false;
     }
 
+    public OpCode[] GetHandledCodes()
+    {
+        return [
+            OpCode.ExtendQueueFromDays,
+            OpCode.ExtendQueueFromEntryCount,
+            OpCode.SwapQueueItems,
+            OpCode.SwapQueueMembers,
+            OpCode.InsertQueueItem,
+            OpCode.InsertMemberInQueue,
+            OpCode.DeleteQueueItem,
+            OpCode.DeleteQueueMember,
+            OpCode.RegenerateQueue,
+            OpCode.ChangeQueueItemInterval,
+            OpCode.CompleteCurrentQueue
+        ];
+    }
+
+
     private async Task<bool> Handle<Req, Res>
     (ClientContext context, ReadPacket packet, Func<Req, Task<Result<Res>>> func, CancellationToken token)
     where Req : Request

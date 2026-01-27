@@ -9,6 +9,11 @@ namespace Networking.Handlers;
 
 public class DebugHandler() : IPacketHandler
 {
+    public OpCode[] GetHandledCodes()
+    {
+        return [OpCode.Test];
+    }
+
     public async Task<bool> HandleAsync(ClientContext context, ReadPacket packet, CancellationToken token = default)
     {
         while (!token.IsCancellationRequested) {

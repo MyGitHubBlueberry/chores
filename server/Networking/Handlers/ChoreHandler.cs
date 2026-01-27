@@ -57,16 +57,28 @@ public class ChoreHandler(ChoreService service) : IPacketHandler
         return false;
     }
 
-        private async Task<bool> Handle<Req, Res>
-        (ClientContext context, ReadPacket packet, Func<Req, Task<Result<Res>>> func, CancellationToken token)
-        where Req : Request
+    public OpCode[] GetHandledCodes()
+    {
+        return [
+            OpCode.CreateChore,
+            OpCode.DeleteChore,
+            OpCode.UpdateChoreDetails,
+            OpCode.UpdateChoreSchedule,
+            OpCode.PauseChore,
+            OpCode.UnpauseChore
+        ];
+    }
+
+    private async Task<bool> Handle<Req, Res>
+    (ClientContext context, ReadPacket packet, Func<Req, Task<Result<Res>>> func, CancellationToken token)
+    where Req : Request
     {
         return await Handle(context, packet, func, token);
     }
 
-        private async Task<bool> Handle<Req>
-            (ClientContext context, ReadPacket packet, Func<Req, Task<Result>> func, CancellationToken token)
-            where Req : Request
+    private async Task<bool> Handle<Req>
+        (ClientContext context, ReadPacket packet, Func<Req, Task<Result>> func, CancellationToken token)
+        where Req : Request
     {
         var request = JsonSerializer.Deserialize<Req>(packet.jsonData);
         Debug.Assert(request is not null);

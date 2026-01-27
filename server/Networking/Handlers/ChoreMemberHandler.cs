@@ -35,6 +35,15 @@ public class ChoreMemberHandler(ChoreMemberService service) : IPacketHandler
         return false;
     }
 
+    public OpCode[] GetHandledCodes()
+    {
+        return [
+            OpCode.AddMember,
+            OpCode.DeleteMember,
+            OpCode.SetAdminStatus,
+        ];
+    }
+
     private async Task<bool> Handle<Req, Res>
     (ClientContext context, ReadPacket packet, Func<Req, Task<Result<Res>>> func, CancellationToken token)
     where Req : Request

@@ -7,4 +7,5 @@ namespace Networking.Handlers;
 public interface IPacketHandler
 {
     Task<bool> HandleAsync(ClientContext context, ReadPacket packet, CancellationToken token = default);
+    OpCode[] GetHandledCodes();
 }
