@@ -75,22 +75,5 @@ public class AuthHandler(UserService service) : IPacketHandler
         SendPacket<Result> sendPacket = new(packet.code, responce);
         await PacketProtocol.SendPacketAsync(stream, sendPacket);
         return responce.IsSuccess;
-        T? request;
-        try
-        {
-            request = JsonSerializer.Deserialize<T>(packet.jsonData);
-        }
-        catch
-        {
-            return false;
-        }
-
-        Debug.Assert(request != null);
-
-        var responce = await func.Invoke(request);
-
-        SendPacket<Result> sendPacket = new(packet.code, responce);
-        await PacketProtocol.SendPacketAsync(stream, sendPacket);
-        return responce.IsSuccess;
     }
 }
