@@ -2,9 +2,10 @@ using System;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using Networking;
 using Shared.Networking;
 using Shared.Networking.Packets;
+
+namespace Networking.Handlers;
 
 public abstract class PacketHandler
 {
@@ -15,7 +16,7 @@ public abstract class PacketHandler
     {
         while (!token.IsCancellationRequested)
         {
-            return await HandleCodesAsync();
+            return await HandleCodesAsync(context, packet, token);
         }
         return false;
     }

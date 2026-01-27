@@ -20,7 +20,7 @@ class Program
         using var cts = new CancellationTokenSource();
         using var db = new Database.Context();
 
-        var userService = new UserService(db, cts.Token);
+        var userService = new UserService(db);
         var permissionService = new ChorePermissionService(db);
         var queueService = new ChoreQueueService(db, permissionService);
         var choreService = new ChoreService(db, queueService, permissionService);

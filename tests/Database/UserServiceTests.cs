@@ -19,7 +19,7 @@ public class UserServiceTests
 
         using (var context = new Context(options))
         {
-            var service = new UserService(context, CancellationToken.None);
+            var service = new UserService(context);
 
             Result<User> userResult = await service.RegisterAsync(request);
 
@@ -46,7 +46,7 @@ public class UserServiceTests
         var request = new RegisterRequest("test", "123");
         using (var context = new Context(options))
         {
-            var service = new UserService(context, CancellationToken.None);
+            var service = new UserService(context);
             var user = await service.RegisterAsync(request);
 
             Assert.True(user.IsSuccess);
@@ -56,7 +56,7 @@ public class UserServiceTests
 
         using (var context = new Context(options))
         {
-            var service = new UserService(context, CancellationToken.None);
+            var service = new UserService(context);
             var user = await service.RegisterAsync(request);
 
             Assert.False(user.IsSuccess);
@@ -74,7 +74,7 @@ public class UserServiceTests
     {
         var (connection, options) = await DbTestHelper.SetupTestDbAsync();
         using var context = new Context(options);
-        var service = new UserService(context, CancellationToken.None);
+        var service = new UserService(context);
         var user = await service.GetByIdAsync(0);
 
         Assert.Empty(context.Users);
@@ -90,7 +90,7 @@ public class UserServiceTests
         string username = "test";
         using var context = new Context(options);
         User user = await DbTestHelper.CreateAndAddUser(username, context);
-        var service = new UserService(context, CancellationToken.None);
+        var service = new UserService(context);
 
         var userResult = await service.GetByIdAsync(user.Id);
 
@@ -108,7 +108,7 @@ public class UserServiceTests
         User anotherUser = await DbTestHelper.CreateAndAddUser("username", context);
         User user = await DbTestHelper.CreateAndAddUser("user", context);
 
-        var service = new UserService(context, CancellationToken.None);
+        var service = new UserService(context);
         var userResult = await service.GetByIdAsync(user.Id);
 
         Assert.NotEmpty(context.Users);
@@ -127,7 +127,7 @@ public class UserServiceTests
         var (connection, options) = await DbTestHelper.SetupTestDbAsync();
         using var context = new Context(options);
 
-        var service = new UserService(context, CancellationToken.None);
+        var service = new UserService(context);
         var user = await service.GetByNameAsync(username);
 
         Assert.Empty(context.Users);
@@ -149,7 +149,7 @@ public class UserServiceTests
         await DbTestHelper.CreateAndAddUser("tEst", context);
         await DbTestHelper.CreateAndAddUser("TEST", context);
 
-        var service = new UserService(context, CancellationToken.None);
+        var service = new UserService(context);
         var userResult = await service.GetByNameAsync(username);
 
         Assert.NotEmpty(context.Users);
@@ -165,7 +165,7 @@ public class UserServiceTests
         using var context = new Context(options);
         User user1 = await DbTestHelper.CreateAndAddUser("user1", context);
         User user2 = await DbTestHelper.CreateAndAddUser("user2", context);
-        var service = new UserService(context, CancellationToken.None);
+        var service = new UserService(context);
         var result = await service.DeleteUserAsync(user1.Id, user2.Id);
         Assert.False(result.IsSuccess);
         Assert.Equal(ServiceError.Forbidden, result.Error);
@@ -179,7 +179,7 @@ public class UserServiceTests
         User user = await DbTestHelper.CreateAndAddUser("test", context);
 
         Assert.NotEmpty(context.Users);
-        var service = new UserService(context, CancellationToken.None);
+        var service = new UserService(context);
         var result = await service.DeleteUserAsync(user.Id, user.Id);
         Assert.Equal(ServiceError.None, result.Error);
         Assert.Empty(context.Users);
@@ -213,7 +213,7 @@ public class UserServiceTests
 
         using (var context = new Context(options))
         {
-            var service = new UserService(context, CancellationToken.None);
+            var service = new UserService(context);
 
             var choresResult = await service.GetOwnedChoresByIdAsync(user.Id);
             var logsResult = await service.GetAssociatedLogsByIdAsync(user.Id);

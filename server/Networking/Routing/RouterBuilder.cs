@@ -8,7 +8,7 @@ public class RouterBuilder
 {
     Router router = new();
 
-    public RouterBuilder WithHandler(IPacketHandler handler)
+    public RouterBuilder WithHandler(PacketHandler handler)
     {
         foreach (var code in handler.GetHandledCodes())
         {

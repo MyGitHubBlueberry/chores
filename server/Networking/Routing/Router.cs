@@ -6,10 +6,10 @@ namespace Networking.Routing;
 
 public class Router
 {
-    Dictionary<OpCode, IPacketHandler> handlers = new();
+    Dictionary<OpCode, PacketHandler> handlers = new();
     public int HandlerCount => handlers.Count;
 
-    public IPacketHandler? this[OpCode code]
+    public PacketHandler? this[OpCode code]
     {
         get => handlers.GetValueOrDefault(code);
         set
