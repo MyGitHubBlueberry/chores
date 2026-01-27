@@ -35,13 +35,3 @@ public record UpdateChoreScheduleRequest(
     TimeSpan? Duration = null,
     TimeSpan? Interval = null
 ) : Request;
-
-public record AddMembersRequest(
-    int ChoreId,
-    Dictionary<string, MemberStatus> UsernamesToMemberStatuses
-) : Request;
-
-public record MemberStatus(
-    bool IsAdmin = false,
-    int? RotationOrder = null
-) : Request;

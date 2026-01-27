@@ -242,10 +242,11 @@ public class ChoreMemberServiceTests
         using var context = new Context(options);
         var service = DbTestHelper.GetChoreMemberService(context);
         Assert.Equal(2, chore.Members.Count);
+
+        var request = new DeleteMemberRequest(chore.Id,
+                chore.Members.First(m => !m.IsAdmin).UserId);
         Assert.True((await service
-                .DeleteMemberAsync(chore.Id,
-                    chore.OwnerId,
-                    chore.Members.First(m => !m.IsAdmin).UserId)).IsSuccess);
+                .DeleteMemberAsync(chore.OwnerId, request)).IsSuccess);
         chore = await context.Chores.FirstAsync();
         Assert.Single(chore.Members);
     }
@@ -266,8 +267,10 @@ public class ChoreMemberServiceTests
         using var context = new Context(options);
         var service = DbTestHelper.GetChoreMemberService(context);
         Assert.Equal(2, chore.Members.Count);
+        var request = new DeleteMemberRequest(chore.Id,
+                memberId);
         Assert.True((await service
-                .DeleteMemberAsync(chore.Id, memberId, memberId)).IsSuccess);
+                .DeleteMemberAsync(memberId, request)).IsSuccess);
         chore = await context.Chores.FirstAsync();
         Assert.Single(chore.Members);
     }
@@ -284,8 +287,10 @@ public class ChoreMemberServiceTests
         using var context = new Context(options);
         var service = DbTestHelper.GetChoreMemberService(context);
         Assert.Equal(2, chore.Members.Count);
+        var request = new DeleteMemberRequest(chore.Id,
+                chore.OwnerId);
         Assert.True((await service
-                .DeleteMemberAsync(chore.Id, chore.OwnerId, chore.OwnerId)).IsSuccess);
+                .DeleteMemberAsync(chore.OwnerId, request)).IsSuccess);
         Assert.Null(await context.Chores.FirstOrDefaultAsync());
     }
 
@@ -309,8 +314,10 @@ public class ChoreMemberServiceTests
         using var context = new Context(options);
         var service = DbTestHelper.GetChoreMemberService(context);
         Assert.Equal(3, chore.Members.Count);
+        var request = new DeleteMemberRequest(chore.Id,
+                adminIds[1]);
         Assert.False((await service
-                .DeleteMemberAsync(chore.Id, adminIds[0], adminIds[1])).IsSuccess);
+                .DeleteMemberAsync(adminIds[0], request)).IsSuccess);
         chore = await context.Chores.FirstAsync();
         Assert.Equal(3, chore.Members.Count);
     }
@@ -332,8 +339,10 @@ public class ChoreMemberServiceTests
         using (var context = new Context(options))
         {
             Assert.Equal(3, chore.Members.Count);
+            var request = new DeleteMemberRequest(chore.Id,
+                    removeMemberId);
             Assert.True((await DbTestHelper.GetChoreMemberService(context)
-                .DeleteMemberAsync(chore.Id, chore.OwnerId, removeMemberId)).IsSuccess);
+                .DeleteMemberAsync(chore.OwnerId, request)).IsSuccess);
         }
         using (var context = new Context(options))
         {
@@ -345,7 +354,7 @@ public class ChoreMemberServiceTests
     }
 
     [Fact]
-    public async Task 
+    public async Task
         DeleteMember_Sets_Rotation_Order_To_Null_And_Pauses_Chore_If_After_Delete_Queue_Is_Empty()
     {
         var (connection, options) = await DbTestHelper.SetupTestDbAsync();
@@ -361,8 +370,10 @@ public class ChoreMemberServiceTests
         using (var context = new Context(options))
         {
             Assert.Equal(2, chore.Members.Count);
+            var request = new DeleteMemberRequest(chore.Id,
+                    removeMemberId);
             Assert.True((await DbTestHelper.GetChoreMemberService(context)
-                .DeleteMemberAsync(chore.Id, chore.OwnerId, removeMemberId)).IsSuccess);
+                .DeleteMemberAsync(chore.OwnerId, request)).IsSuccess);
             chore.IsPaused = false;
         }
         using (var context = new Context(options))
@@ -387,12 +398,13 @@ public class ChoreMemberServiceTests
         using var context = new Context(options);
         var service = DbTestHelper.GetChoreMemberService(context);
         Assert.Single(chore.Members, m => m.IsAdmin);
-        Assert.True((await service.SetAdminStatusAsync(chore.Id,
-                chore.OwnerId,
+        var request = new SetAdminStatusRequest(chore.Id,
                 chore.Members.Where(m => !m.IsAdmin)
                     .Select(m => m.UserId)
                     .First(),
-                true)).IsSuccess);
+                true);
+        Assert.True((await service.SetAdminStatusAsync(chore.OwnerId, request))
+                .IsSuccess);
         chore = await context.Chores.FirstAsync();
         Assert.Equal(2, chore.Members.Where(m => m.IsAdmin).Count());
     }
@@ -417,8 +429,11 @@ public class ChoreMemberServiceTests
         using var context = new Context(options);
         var service = DbTestHelper.GetChoreMemberService(context);
         Assert.Equal(3, chore.Members.Where(m => m.IsAdmin).Count());
+        var request = new SetAdminStatusRequest(chore.Id,
+                adminIds[1],
+                false);
         Assert.False((await service
-                .SetAdminStatusAsync(chore.Id, adminIds[0], adminIds[1], false)).IsSuccess);
+                .SetAdminStatusAsync(adminIds[0], request)).IsSuccess);
         chore = await context.Chores.FirstAsync();
         Assert.Equal(3, chore.Members.Where(m => m.IsAdmin).Count());
     }
@@ -441,8 +456,11 @@ public class ChoreMemberServiceTests
         using var context = new Context(options);
         var service = DbTestHelper.GetChoreMemberService(context);
         Assert.Single(chore.Members, m => m.IsAdmin);
+        var request = new SetAdminStatusRequest(chore.Id,
+                membersIds[1],
+                false);
         Assert.False((await service
-                .SetAdminStatusAsync(chore.Id, membersIds[0], membersIds[1], false)).IsSuccess);
+                .SetAdminStatusAsync(membersIds[0], request)).IsSuccess);
         chore = await context.Chores.FirstAsync();
         Assert.Single(chore.Members, m => m.IsAdmin);
     }

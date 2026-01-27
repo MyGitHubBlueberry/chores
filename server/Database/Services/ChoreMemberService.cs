@@ -80,29 +80,29 @@ public class ChoreMemberService
 
     //TODO: test for queue
     public async Task<Result> DeleteMemberAsync
-        (int choreId, int requesterId, int targetUserId, CancellationToken token = default)
+        (int requesterId, DeleteMemberRequest request, CancellationToken token = default)
     {
         var chore = await db.Chores
             .Include(c => c.Members)
-            .FirstOrDefaultAsync(c => c.Id == choreId, token);
+            .FirstOrDefaultAsync(c => c.Id == request.ChoreId, token);
 
         if (chore is null) return Result.NotFound("Chore not found");
 
         bool isOwner = chore.OwnerId == requesterId;
         bool isAdmin = chore.Members.Any(m => m.UserId == requesterId && m.IsAdmin);
-        bool isSelf = requesterId == targetUserId;
+        bool isSelf = requesterId == request.UserId;
 
         if (!isOwner && !isAdmin && !isSelf) return Result.Forbidden();
-        if (targetUserId == chore.OwnerId && !isOwner) return Result.Forbidden();
+        if (request.UserId == chore.OwnerId && !isOwner) return Result.Forbidden();
 
-        var targetMember = chore.Members.FirstOrDefault(m => m.UserId == targetUserId);
+        var targetMember = chore.Members.FirstOrDefault(m => m.UserId == request.UserId);
         if (targetMember is null) return Result.NotFound("Member not found");
 
         if (!isOwner && isAdmin && targetMember.IsAdmin && !isSelf)
             return Result.Forbidden("Admins can't remove other admins");
 
         if (isOwner && isSelf)
-            return await cServ.DeleteChoreAsync(choreId, requesterId);
+            return await cServ.DeleteChoreAsync(request.ChoreId, requesterId);
 
         if (targetMember.RotationOrder.HasValue)
         {
@@ -118,31 +118,30 @@ public class ChoreMemberService
             }
         }
 
-        await qServ.DeleteMemberFromQueueAsync(choreId, chore.OwnerId, targetUserId);
+        await qServ.DeleteMemberFromQueueAsync(request.ChoreId, chore.OwnerId, request.UserId);
         chore.Members.Remove(targetMember);
 
         await db.SaveChangesAsync(token);
         return Result.Success();
     }
 
-    //TODO: refactor to request
     public async Task<Result> SetAdminStatusAsync
-        (int choreId, int requesterId, int targetId, bool isAdmin, CancellationToken token = default)
+        (int requesterId, SetAdminStatusRequest request, CancellationToken token = default)
     {
-        if (requesterId == targetId)
+        if (requesterId == request.UserId)
             return Result.Fail(ServiceError.Conflict, "Can't change admin status of yourself");
 
         var chore = await db.Chores
-            .Where(ch => ch.Id == choreId)
+            .Where(ch => ch.Id == request.ChoreId)
             .Include(ch => ch.Members)
             .FirstOrDefaultAsync(token);
 
         if (chore is null) return Result.NotFound("Chore not found");
-        if (chore.OwnerId == targetId)
+        if (chore.OwnerId == request.UserId)
             return Result.Fail(ServiceError.InvalidInput, "Owner admin status can't be changed");
 
         var requester = chore.Members.FirstOrDefault(m => m.UserId == requesterId);
-        var target = chore.Members.FirstOrDefault(m => m.UserId == targetId);
+        var target = chore.Members.FirstOrDefault(m => m.UserId == request.UserId);
         bool isRequesterOwner = chore.OwnerId == requesterId;
 
         if (requester is null || target is null) return Result.NotFound("User not found");
@@ -150,7 +149,7 @@ public class ChoreMemberService
         if ((target.IsAdmin && isRequesterOwner)
                 || (!target.IsAdmin && requester.IsAdmin))
         {
-            target.IsAdmin = isAdmin;
+            target.IsAdmin = request.IsAdmin;
             await db.SaveChangesAsync(token);
             return Result.Success();
         }

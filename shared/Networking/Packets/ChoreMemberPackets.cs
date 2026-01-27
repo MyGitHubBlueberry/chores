@@ -10,7 +10,7 @@ public record MemberStatus(
     int? RotationOrder = null
 ) : Request;
 
-public record DeleteMembersRequest(
+public record DeleteMemberRequest(
     int ChoreId,
     int UserId
 ) : Request;
@@ -18,5 +18,5 @@ public record DeleteMembersRequest(
 public record SetAdminStatusRequest(
     int ChoreId,
     int UserId,
-    MemberStatus stasus
+    bool IsAdmin
 ) : Request;
