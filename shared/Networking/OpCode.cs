@@ -27,4 +27,15 @@ public enum OpCode : byte
     DeleteMember,
     SetAdminStatus,
 
+    ExtendQueueFromDays,
+    ExtendQueueFromEntryCount,
+    SwapQueueItems,
+    SwapQueueMembers,
+    InsertQueueItem,
+    InsertMemberInQueue,
+    DeleteQueueItem,
+    DeleteQueueMember,
+    RegenerateQueue,
+    RegenerateQueueIntervals,
+    CompleteCurrentQueue,
 }
