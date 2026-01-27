@@ -22,4 +22,9 @@ public enum OpCode : byte
     UpdateChoreSchedule,
     PauseChore,
     UnpauseChore,
+
+    AddMember,
+    DeleteMember,
+    SetAdminStatus,
+
 }
