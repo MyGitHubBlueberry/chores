@@ -10,9 +10,10 @@ using Shared.Networking.Packets;
 
 namespace Database.Services;
 
-public class UserService(Context db, CancellationToken token)
+public class UserService(Context db)
 {
-    public async Task<Result<User>> RegisterAsync(RegisterRequest request)
+    public async Task<Result<User>> RegisterAsync
+        (RegisterRequest request, CancellationToken token = default)
     {
         if (await db.Users.AnyAsync(u => u.Username == request.Username, token))
             return Result<User>.Fail(ServiceError.Conflict, "User already exists");
@@ -28,7 +29,8 @@ public class UserService(Context db, CancellationToken token)
         return Result<User>.Success(user);
     }
 
-    public async Task<Result<User>> LoginAsync(LoginRequest request)
+    public async Task<Result<User>> LoginAsync
+        (LoginRequest request, CancellationToken token = default)
     {
         var userResult = await GetByNameAsync(request.Username);
         if (!userResult.IsSuccess || userResult.Value is null)
@@ -39,7 +41,8 @@ public class UserService(Context db, CancellationToken token)
         return Result<User>.Success(user);
     }
 
-    public async Task<Result<User>> GetByIdAsync(int id)
+    public async Task<Result<User>> GetByIdAsync
+        (int id, CancellationToken token = default)
     {
         User? u = await db.Users.FindAsync(id, token);
         if (u is null)
@@ -49,7 +52,8 @@ public class UserService(Context db, CancellationToken token)
         return Result<User>.Success(u);
     }
 
-    public async Task<Result<User>> GetByNameAsync(string name)
+    public async Task<Result<User>> GetByNameAsync
+        (string name, CancellationToken token = default)
     {
         return await db.Users.Where(u => u.Username == name)
             .FirstOrDefaultAsync(token) is User u 
@@ -57,7 +61,8 @@ public class UserService(Context db, CancellationToken token)
                 : Result<User>.NotFound("User doesn't exist");
     }
 
-    public async Task<Result> DeleteUserAsync(int requesterId, int id)
+    public async Task<Result> DeleteUserAsync
+        (int requesterId, int id, CancellationToken token = default)
     {
         if (requesterId != id) return Result.Forbidden();
         return await db.Users.Where(u => u.Id == id)
@@ -66,7 +71,8 @@ public class UserService(Context db, CancellationToken token)
             : Result.NotFound();
     }
 
-    public async Task<Result<ICollection<Chore>>> GetOwnedChoresByIdAsync(int id)
+    public async Task<Result<ICollection<Chore>>> GetOwnedChoresByIdAsync
+        (int id, CancellationToken token = default)
     {
         if (!await db.Users.AnyAsync(u => u.Id == id))
             return Result<ICollection<Chore>>.NotFound();
@@ -76,7 +82,8 @@ public class UserService(Context db, CancellationToken token)
                 .ToListAsync(token));
     }
 
-    public async Task<Result<ICollection<ChoreMember>>> GetMembershipsByIdAsync(int id)
+    public async Task<Result<ICollection<ChoreMember>>> GetMembershipsByIdAsync
+        (int id, CancellationToken token = default)
     {
         if (!await db.Users.AnyAsync(u => u.Id == id))
             return Result<ICollection<ChoreMember>>.NotFound();
@@ -86,7 +93,8 @@ public class UserService(Context db, CancellationToken token)
                 .ToListAsync(token));
     }
 
-    public async Task<Result<ICollection<ChoreLog>>> GetAssociatedLogsByIdAsync(int id)
+    public async Task<Result<ICollection<ChoreLog>>> GetAssociatedLogsByIdAsync
+        (int id, CancellationToken token = default)
     {
         if (!await db.Users.AnyAsync(u => u.Id == id))
             return Result<ICollection<ChoreLog>>.NotFound();
