@@ -20,7 +20,7 @@ public abstract class PacketHandler
         return false;
     }
 
-    protected abstract Task<bool> HandleCodesAsync();
+    protected abstract Task<bool> HandleCodesAsync(ClientContext context, ReadPacket packet, CancellationToken token = default);
 
     protected async Task<bool> HandlePacketAsync<Req, Res>
         (ClientContext context, ReadPacket packet, Func<Req, Task<Result<Res>>> func, CancellationToken token)
