@@ -36,6 +36,6 @@ public enum OpCode : byte
     DeleteQueueItem,
     DeleteQueueMember,
     RegenerateQueue,
-    RegenerateQueueIntervals,
+    ChangeQueueItemInterval,
     CompleteCurrentQueue,
 }
