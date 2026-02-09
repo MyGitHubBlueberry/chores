@@ -1,31 +1,21 @@
-﻿using System;
-using System.Threading.Tasks;
+﻿using Avalonia;
+using System;
 
-using Networking;
-using Shared.Networking;
-using Shared.Networking.Packets.Debug;
+namespace client;
 
-class Program
+sealed class Program
 {
-    static async Task Main(string[] args)
-    {
-        using var client = new Client();
-        await client.ConnectAsync();
+    // Initialization code. Don't use any Avalonia, third-party APIs or any
+    // SynchronizationContext-reliant code before AppMain is called: things aren't initialized
+    // yet and stuff might break.
+    [STAThread]
+    public static void Main(string[] args) => BuildAvaloniaApp()
+        .StartWithClassicDesktopLifetime(args);
 
-        while (client.IsConnected)
-        {
-            Console.Write("Type message: ");
-            string input = Console.ReadLine()?.Trim() ?? "";
-            if (input == "q")
-            {
-                client.Disconnect();
-                break;
-            }
-
-            TestRequest data = new(input);
-            SendPacket<TestRequest> packet = new (OpCode.Test, data);
-
-            await client.SendAsync(packet);
-        }
-    }
+    // Avalonia configuration, don't remove; also used by visual designer.
+    public static AppBuilder BuildAvaloniaApp()
+        => AppBuilder.Configure<App>()
+            .UsePlatformDetect()
+            .WithInterFont()
+            .LogToTrace();
 }
