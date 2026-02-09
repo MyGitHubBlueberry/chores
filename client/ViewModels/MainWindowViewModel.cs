@@ -1,6 +1,10 @@
-﻿namespace client.ViewModels;
+﻿using Avalonia.Controls;
+using client.Views;
+using CommunityToolkit.Mvvm.ComponentModel;
+
+namespace client.ViewModels;
 
 public partial class MainWindowViewModel : ViewModelBase
 {
-    public string Greeting { get; } = "Welcome to Avalonia!";
+    [ObservableProperty] UserControl currentView = new Login();
 }
