@@ -21,7 +21,7 @@ public class Server : IDisposable
     {
         if (!IsPortAvailable(port))
             throw new ArgumentException();
-        endPoint = ConnectionHelper.ConfigureEndPoint(port);
+        endPoint = new IPEndPoint(IPAddress.Any, port);
         sock = new(
                 endPoint.AddressFamily,
                 SocketType.Stream,
