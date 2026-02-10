@@ -4,6 +4,7 @@
     <option name="projectPerEditor">
       <map>
         <entry key="client/App.axaml" value="client/client.csproj" />
+        <entry key="client/Views/AuthView.axaml" value="client/client.csproj" />
         <entry key="client/Views/ConnectionView.axaml" value="client/client.csproj" />
         <entry key="client/Views/ConnectionWindow.axaml" value="client/client.csproj" />
         <entry key="client/Views/Login.axaml" value="client/client.csproj" />
