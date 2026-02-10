@@ -4,7 +4,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:client.ViewModels"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-             x:Class="client.Views.Login"
+             x:Class="client.Views.LoginView"
              x:DataType="vm:LoginViewModel">
     
     <Design.DataContext>
@@ -28,7 +28,7 @@
         <StackPanel Orientation="Horizontal"
                     HorizontalAlignment="Center"
                     Spacing="10">
-            <Button>Login</Button>
+            <Button Command="{Binding LoginClick}">Login</Button>
             <Button>Register</Button>
         </StackPanel>
     </StackPanel>

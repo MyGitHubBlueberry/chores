@@ -6,6 +6,7 @@ using System.Linq;
 using Avalonia.Markup.Xaml;
 using client.ViewModels;
 using client.Views;
+using Networking;
 
 namespace client;
 
