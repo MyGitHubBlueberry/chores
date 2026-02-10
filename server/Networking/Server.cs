@@ -37,7 +37,7 @@ public class Server : IDisposable
         sock.Bind(endPoint);
         sock.Listen();
 
-
+        Console.WriteLine("Server started on port " + endPoint.Port);
         List<Task> clients = new List<Task>();
         while (!token.IsCancellationRequested)
         {

@@ -8,5 +8,16 @@ namespace client.ViewModels;
 
 public partial class MainWindowViewModel : ViewModelBase
 {
-    [ObservableProperty] UserControl currentView = new LoginView();
+    private readonly Client client;
+    [ObservableProperty] ViewModelBase currentView;
+    public MainWindowViewModel(Client client)
+    {
+        this.client = client;
+        var connectionVm = new ConnectionViewModel(client);
+        connectionVm.OnConnectionSuccess += () =>
+            CurrentView = new LoginViewModel(client);
+        CurrentView = connectionVm;
+    }
+    
+    public MainWindowViewModel() {} //for previewer
 }

@@ -9,9 +9,17 @@ public partial class LoginViewModel : ViewModelBase
     public string? Username { get; set; }
     public string? Password { get; set; }
     public string? ConfirmedPassword { get; set; }
-    private LoginModel model = new();
+    
+    private LoginModel model;
 
-    public void LoginClick()
+    public LoginViewModel(Client client)
+    {
+        model = new(client);
+    }
+
+    public LoginViewModel() { }
+
+    public async void LoginClick()
     {
         var request = new LoginRequest(Username, Password);
         model.Login(request);

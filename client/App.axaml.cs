@@ -1,3 +1,4 @@
+using System;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Data.Core;
@@ -7,11 +8,13 @@ using Avalonia.Markup.Xaml;
 using client.ViewModels;
 using client.Views;
 using Networking;
-
+using Microsoft.Extensions.DependencyInjection;
 namespace client;
 
 public partial class App : Application
 {
+    public new static App Current => (App)Application.Current!;
+    public IServiceProvider? Services { get; private set; }
     public override void Initialize()
     {
         AvaloniaXamlLoader.Load(this);
@@ -19,14 +22,21 @@ public partial class App : Application
 
     public override void OnFrameworkInitializationCompleted()
     {
+        var collection = new ServiceCollection();
+        collection.AddSingleton<Client>();
+        collection.AddTransient<MainWindowViewModel>();
+        collection.AddTransient<LoginViewModel>();
+        Services = collection.BuildServiceProvider();
+        
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             // Avoid duplicate validations from both Avalonia and the CommunityToolkit. 
             // More info: https://docs.avaloniaui.net/docs/guides/development-guides/data-validation#manage-validationplugins
             DisableAvaloniaDataAnnotationValidation();
+            var mainViewModel = Services.GetRequiredService<MainWindowViewModel>();
             desktop.MainWindow = new MainWindow
             {
-                DataContext = new MainWindowViewModel(),
+                DataContext = mainViewModel,
             };
         }
 

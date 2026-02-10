@@ -13,29 +13,38 @@ using Shared.Networking.Packets.Debug;
 
 public class Client : IDisposable
 {
+    public Action<ReadPacket> PacketRecieved;
     public bool IsConnected { get => sock?.Connected ?? false; }
     public CancellationToken Token { get => cts.Token; }
 
-    readonly IPEndPoint endPoint;
+    
     readonly CancellationTokenSource cts;
     NetworkStream? stream;
     Socket sock;
 
     public Client()
     {
-        endPoint = ConnectionHelper.ConfigureEndPoint(7777);
         sock = new(
-            endPoint.AddressFamily,
+            AddressFamily.InterNetwork,
             SocketType.Stream,
             ProtocolType.Tcp);
         cts = new();
     }
 
-    public async Task ConnectAsync()
+    public async Task ConnectAsync(string ip, int port, int tryCount)
     {
         if (sock.Connected) return;
-
-        while (!cts.IsCancellationRequested && !sock.Connected)
+        
+        if (!IPAddress.TryParse(ip, out IPAddress? address))
+        {
+            throw new ArgumentException("Invalid IP Address");
+        }
+        IPEndPoint endPoint = new IPEndPoint(address, port);
+        
+        if (sock is null) 
+            sock = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+        
+        while (!cts.IsCancellationRequested && !sock.Connected && tryCount-- > 0)
         {
             try
             {
@@ -45,11 +54,15 @@ public class Client : IDisposable
             {
                 Console.WriteLine($"Connection failed: {ex.Message}");
                 Console.WriteLine($"Reconnecting...");
-                Thread.Sleep(1_000);
+                await Task.Delay(1000, cts.Token);
             }
         }
-        stream = new NetworkStream(sock);
-        _ = RecieveLoopAsync();
+
+        if (!cts.IsCancellationRequested && sock.Connected)
+        {
+            stream = new NetworkStream(sock);
+            _ = RecieveLoopAsync();
+        }
     }
 
     public async Task SendAsync<T>(SendPacket<T> packet)
@@ -72,12 +85,9 @@ public class Client : IDisposable
 
     bool HandleResponces(ReadPacket packet)
     {
+        PacketRecieved.Invoke(packet);
         switch (packet.code)
         {
-            case OpCode.Test:
-                TestResponse? data = JsonSerializer.Deserialize<TestResponse>(packet.jsonData);
-                Console.WriteLine($"Recieved data is: {data?.str}");
-                break;
             case OpCode.Disconnect:
                 Console.WriteLine("Disconnected");
                 return false;
