@@ -6,8 +6,10 @@ using Networking.Routing;
 using Networking;
 using Database.Services;
 using System.Threading;
+using Database;
 using Networking.Handlers;
 using Shared.Networking;
+using Microsoft.Extensions.DependencyInjection;
 
 class Program
 {
@@ -16,34 +18,39 @@ class Program
         int port;
         if (!ArgParser.Parse(args, out port))
             return;
+        
+        var serviceCollection = new ServiceCollection();
+        
+        serviceCollection.AddDbContext<Context>();
+        
+        serviceCollection.AddScoped<UserService>();
+        serviceCollection.AddScoped<ChorePermissionService>();
+        serviceCollection.AddScoped<ChoreQueueService>();
+        serviceCollection.AddScoped<ChoreService>();
+        serviceCollection.AddScoped<ChoreMemberService>();
+        
+        serviceCollection.AddSingleton<AuthHandler>();
+        serviceCollection.AddSingleton<UserHandler>();
+        serviceCollection.AddSingleton<ChoreHandler>();
+        serviceCollection.AddSingleton<ChoreMemberHandler>();
+        serviceCollection.AddSingleton<ChoreQueueHandler>();
+        serviceCollection.AddSingleton<DebugHandler>();
+        
+        var serviceProvider = serviceCollection.BuildServiceProvider();
+        var cts = new CancellationTokenSource();
 
-        using var cts = new CancellationTokenSource();
-        using var db = new Database.Context();
-
-        var userService = new UserService(db);
-        var permissionService = new ChorePermissionService(db);
-        var queueService = new ChoreQueueService(db, permissionService);
-        var choreService = new ChoreService(db, queueService, permissionService);
-        var memberService = new ChoreMemberService(db, queueService, choreService, permissionService);
-
-        var router = new RouterBuilder()
-            .WithAllHandlers(queueService, userService, memberService, choreService)
-            .WithHandler(new DebugHandler())
+        var router = new RouterBuilder(serviceProvider)
+            .WithAllHandlers()
             .Build();
 
         using Server server = new(port, router, cts.Token);
 
-        _ = Task.Run(()
-                => {
-            ConsoleKeyInfo key;
-            do
-            {
-                key = Console.ReadKey();
-            }
-            while (key.KeyChar != 'q');
+        _ = Task.Run(() => {
+            while (Console.ReadKey().KeyChar != 'q');
             cts.Cancel();
-        });
-
+        }, cts.Token);
+        
+        Console.WriteLine($"Server started on port {port}");
         await server.ListenAsync();
     }
 }

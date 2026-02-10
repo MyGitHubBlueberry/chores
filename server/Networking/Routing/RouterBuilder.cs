@@ -1,15 +1,19 @@
+using System;
 using System.Diagnostics;
+using Microsoft.Extensions.DependencyInjection;
 using Database.Services;
 using Networking.Handlers;
 
 namespace Networking.Routing;
 
-public class RouterBuilder
+public class RouterBuilder(IServiceProvider services)
 {
     Router router = new();
 
-    public RouterBuilder WithHandler(PacketHandler handler)
+    public RouterBuilder WithHandler<T>() where T : PacketHandler
     {
+        var handler = services.GetRequiredService<T>();
+        
         foreach (var code in handler.GetHandledCodes())
         {
             Debug.Assert(router[code] is null);
@@ -18,46 +22,16 @@ public class RouterBuilder
 
         return this;
     }
-
-    public RouterBuilder WithAuthenticationHandler(UserService service)
+    
+    public RouterBuilder WithAllHandlers()
     {
-        var handler = new AuthHandler(service);
-        return this.WithHandler(handler);
-    }
-
-    public RouterBuilder WithUserHandler(UserService service)
-    {
-        var handler = new UserHandler(service);
-        return this.WithHandler(handler);
-    }
-
-    public RouterBuilder WithChoreHandler(ChoreService service)
-    {
-        var handler = new ChoreHandler(service);
-        return this.WithHandler(handler);
-    }
-
-    public RouterBuilder WithChoreMemberHandler(ChoreMemberService service)
-    {
-        var handler = new ChoreMemberHandler(service);
-        return this.WithHandler(handler);
-    }
-
-    public RouterBuilder WithChoreQueueHandler(ChoreQueueService service)
-    {
-        var handler = new ChoreQueueHandler(service);
-        return this.WithHandler(handler);
-    }
-
-    public RouterBuilder WithAllHandlers
-        (ChoreQueueService qServ, UserService uServ, ChoreMemberService mServ, ChoreService cServ)
-    {
-        this.WithChoreQueueHandler(qServ)
-            .WithUserHandler(uServ)
-            .WithAuthenticationHandler(uServ)
-            .WithChoreMemberHandler(mServ)
-            .WithChoreHandler(cServ);
-        return this;
+        return this
+            .WithHandler<ChoreQueueHandler>()
+            .WithHandler<UserHandler>()
+            .WithHandler<AuthHandler>()
+            .WithHandler<ChoreMemberHandler>()
+            .WithHandler<ChoreHandler>()
+            .WithHandler<DebugHandler>();
     }
 
     public Router Build()
