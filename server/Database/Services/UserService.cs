@@ -55,8 +55,9 @@ public class UserService(Context db)
     public async Task<Result<User>> GetByNameAsync
         (string name, CancellationToken token = default)
     {
-        return await db.Users.Where(u => u.Username == name)
-            .FirstOrDefaultAsync(token) is User u 
+        User? u = await db.Users.Where(u => u.Username == name)
+            .FirstOrDefaultAsync(token);
+        return u is not null
                 ? Result<User>.Success(u)
                 : Result<User>.NotFound("User doesn't exist");
     }

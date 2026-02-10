@@ -25,7 +25,7 @@ public partial class App : Application
         var collection = new ServiceCollection();
         collection.AddSingleton<Client>();
         collection.AddTransient<MainWindowViewModel>();
-        collection.AddTransient<LoginViewModel>();
+        collection.AddTransient<AuthViewModel>();
         Services = collection.BuildServiceProvider();
         
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)

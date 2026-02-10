@@ -15,7 +15,7 @@ public partial class MainWindowViewModel : ViewModelBase
         this.client = client;
         var connectionVm = new ConnectionViewModel(client);
         connectionVm.OnConnectionSuccess += () =>
-            CurrentView = new LoginViewModel(client);
+            CurrentView = new AuthViewModel(client);
         CurrentView = connectionVm;
     }
     

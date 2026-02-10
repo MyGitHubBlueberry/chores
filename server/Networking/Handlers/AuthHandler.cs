@@ -1,3 +1,5 @@
+using System;
+using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using Database.Services;
@@ -15,6 +17,7 @@ public class AuthHandler(UserService service) : PacketHandler
         switch (packet.code)
         {
             case OpCode.Login:
+                Console.WriteLine("Recieved login request");
                 return await HandlePacketAsync<LoginRequest, User>
                     (context, packet, async req => {
                          var result = await service.LoginAsync(req, token);
@@ -23,6 +26,7 @@ public class AuthHandler(UserService service) : PacketHandler
                          return result;
                      }, token);
             case OpCode.Register:
+                Console.WriteLine("Recieved reg request");
                 return await HandlePacketAsync<RegisterRequest, User>
                     (context, packet, req => service.RegisterAsync(req, token), token);
             default:

@@ -4,11 +4,11 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:client.ViewModels"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-             x:Class="client.Views.LoginView"
-             x:DataType="vm:LoginViewModel">
+             x:Class="client.Views.AuthView"
+             x:DataType="vm:AuthViewModel">
     
     <Design.DataContext>
-        <vm:LoginViewModel/>
+        <vm:AuthViewModel/>
     </Design.DataContext>
     
     <StackPanel VerticalAlignment="Center"
@@ -28,8 +28,8 @@
         <StackPanel Orientation="Horizontal"
                     HorizontalAlignment="Center"
                     Spacing="10">
-            <Button Command="{Binding LoginClick}">Login</Button>
-            <Button>Register</Button>
+            <Button Command="{Binding LoginCommand}">Login</Button>
+            <Button Command="{Binding RegisterCommand}">Register</Button>
         </StackPanel>
     </StackPanel>
 </UserControl>

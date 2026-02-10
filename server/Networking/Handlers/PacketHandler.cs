@@ -27,7 +27,11 @@ public abstract class PacketHandler
         (ClientContext context, ReadPacket packet, Func<Req, Task<Result<Res>>> func, CancellationToken token)
     where Req : Request
     {
-        return await HandlePacketAsync(context, packet, func, token);
+        return await HandlePacketAsync<Req>(context, packet, async (req) => 
+        {
+            Result<Res> result = await func(req);
+            return (Result)result;
+        }, token);
     }
 
     protected async Task<bool> HandlePacketAsync<Req>
@@ -43,8 +47,11 @@ public abstract class PacketHandler
         if (request is null) return false;
 
         SendPacket<Result> sendPacket;
+        Console.WriteLine("before func");
         var result = await func.Invoke(request);
+        Console.WriteLine("after func");
         sendPacket = new(packet.code, result);
+        Console.WriteLine("Sent packet back");
         await PacketProtocol.SendPacketAsync(context.Stream, sendPacket);
         return true;
     }

@@ -62,6 +62,7 @@ public class Client : IDisposable
         {
             stream = new NetworkStream(sock);
             _ = RecieveLoopAsync();
+            Console.WriteLine("In recieve loop");
         }
     }
 
@@ -77,6 +78,7 @@ public class Client : IDisposable
 
         while (!cts.Token.IsCancellationRequested && sock.Connected)
         {
+            Console.WriteLine("waiting to read packet");
             if (!HandleResponces(await PacketProtocol.ReadPacket(stream)))
                 break;
         }
@@ -85,6 +87,7 @@ public class Client : IDisposable
 
     bool HandleResponces(ReadPacket packet)
     {
+        Console.WriteLine("invoked packet recieved");
         PacketRecieved.Invoke(packet);
         switch (packet.code)
         {
