@@ -26,6 +26,7 @@ public class AuthModel
         {
             case OpCode.Login:
                 var result = JsonSerializer.Deserialize<Result<User>>(packet.jsonData);
+                Console.WriteLine("Result is null: " + result is null);
                 if (result.IsSuccess)
                 {
                     Console.WriteLine("Client logged in sucessfully");

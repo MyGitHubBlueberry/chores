@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -15,6 +16,7 @@ public class UserService(Context db)
     public async Task<Result<User>> RegisterAsync
         (RegisterRequest request, CancellationToken token = default)
     {
+        Console.WriteLine("before any async");
         if (await db.Users.AnyAsync(u => u.Username == request.Username, token))
             return Result<User>.Fail(ServiceError.Conflict, "User already exists");
 
@@ -22,10 +24,12 @@ public class UserService(Context db)
             Username = request.Username,
             PasswordHash = PasswordHasher.Hash(request.Password),
         };
-
+        Console.WriteLine("user is null is: " + user is null);
+        Console.WriteLine("before adding user");
         db.Users.Add(user);
         await db.SaveChangesAsync(token);
-
+        
+        Console.WriteLine("return from reg async");
         return Result<User>.Success(user);
     }
 

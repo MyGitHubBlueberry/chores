@@ -48,7 +48,16 @@ public abstract class PacketHandler
 
         SendPacket<Result> sendPacket;
         Console.WriteLine("before func");
-        var result = await func.Invoke(request);
+        Result result;
+        try
+        {
+            result = await func.Invoke(request);
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine(e);
+            throw;
+        }
         Console.WriteLine("after func");
         sendPacket = new(packet.code, result);
         Console.WriteLine("Sent packet back");

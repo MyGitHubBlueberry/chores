@@ -143,9 +143,9 @@ namespace server.Database.Migrations
                     b.Property<string>("AvatarUrl")
                         .HasColumnType("TEXT");
 
-                    b.Property<byte[]>("Password")
+                    b.Property<string>("PasswordHash")
                         .IsRequired()
-                        .HasColumnType("BLOB");
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("Username")
                         .IsRequired()
