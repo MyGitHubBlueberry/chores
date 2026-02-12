@@ -12,9 +12,11 @@ public enum ServiceError
 
 public class Result
 {
-    public bool IsSuccess { get; }
-    public ServiceError Error { get; }
-    public string? ErrorMessage { get; }
+    public bool IsSuccess { get; set; }
+    public ServiceError Error { get; set; }
+    public string? ErrorMessage { get; set; }
+
+    public Result() {}
 
     protected Result(bool isSuccess, ServiceError error, string? errorMessage)
     {
@@ -35,7 +37,9 @@ public class Result
 
 public class Result<T> : Result
 {
-    public T? Value { get; }
+    public T? Value { get; set; }
+
+    public Result() {}
 
     protected Result(Result result, T? value)
         : base(result.IsSuccess, result.Error, result.ErrorMessage)

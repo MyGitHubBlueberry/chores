@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace Shared.Database.Models;
 
 using System.ComponentModel.DataAnnotations;
@@ -15,7 +17,10 @@ public class User
 
     public string? AvatarUrl { get; set; }
 
+    [JsonIgnore]
     public ICollection<Chore> OwnedChores { get; set; } = new List<Chore>();
+    [JsonIgnore]
     public ICollection<ChoreMember> Memberships { get; set; } = new List<ChoreMember>();
+    [JsonIgnore]
     public ICollection<ChoreLog> Logs { get; set; } = new List<ChoreLog>();
 }

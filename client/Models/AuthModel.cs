@@ -1,5 +1,5 @@
 using System;
-using System.Diagnostics;
+using System.Runtime.InteropServices.JavaScript;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Networking;
@@ -25,8 +25,10 @@ public class AuthModel
         switch (packet.code)
         {
             case OpCode.Login:
-                var result = JsonSerializer.Deserialize<Result<User>>(packet.jsonData);
-                Console.WriteLine("Result is null: " + result is null);
+                Console.WriteLine("Started deserialization");
+                Result<User>? result = JsonSerializer.Deserialize<Result<User>>(packet.jsonData);
+                Console.WriteLine("finished deserialization");
+                Console.WriteLine("Result is null: " + (result is null));
                 if (result.IsSuccess)
                 {
                     Console.WriteLine("Client logged in sucessfully");
