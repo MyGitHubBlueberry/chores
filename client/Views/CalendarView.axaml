@@ -1,0 +1,30 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="client.Views.CalendarView">
+    <StackPanel>
+        <DockPanel HorizontalAlignment="Left" VerticalAlignment="Top">
+            <Rectangle Width="30" Height="30" Fill="Aqua"></Rectangle>
+        </DockPanel>
+        <UniformGrid Columns="7" HorizontalAlignment="Stretch">  <!-- maybe switch to the top column of the grid, because days aren't centered -->
+            <TextBlock>Sunday</TextBlock>
+            <TextBlock>Monday</TextBlock>
+            <TextBlock>Tuesday</TextBlock>
+            <TextBlock>Wednesday</TextBlock>
+            <TextBlock>Thursday</TextBlock>
+            <TextBlock>Friday</TextBlock>
+            <TextBlock>Saturday</TextBlock>
+        </UniformGrid>
+        <Grid HorizontalAlignment="Stretch" 
+              ColumnDefinitions="*,*,*,*,*,*,*"
+              ShowGridLines="True"
+              VerticalAlignment="Stretch">
+            <TextBlock>a</TextBlock>
+            <TextBlock Grid.Column="1">a</TextBlock>
+        </Grid>
+    </StackPanel>
+    
+    
+</UserControl>
