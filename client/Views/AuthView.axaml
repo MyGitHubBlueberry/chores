@@ -12,24 +12,63 @@
     </Design.DataContext>
     
     <StackPanel VerticalAlignment="Center"
-                Margin="300 0"
-                Spacing="10">
+                HorizontalAlignment="Center"
+                Spacing="10"
+                Width="300">
         <TextBlock HorizontalAlignment="Center"
                    FontSize="40">Chores</TextBlock>
-        <TextBox Watermark="username"
-                 Text="{Binding Username}"></TextBox>
-        <TextBox PasswordChar="•"
+        <TextBox Name="Username"
+                 Watermark="username"
+                 Text="{Binding Username}">
+        </TextBox>
+        <TextBox Name="Password"
+                 PasswordChar="•"
                  Watermark="password"
-                 Text="{Binding Password}"></TextBox>
-        <TextBox PasswordChar="•" 
-                 Watermark="confirm password" 
-                 IsVisible="False"
-                 Text="{Binding ConfirmedPassword}"></TextBox> <!--enable when registering-->
+                 Text="{Binding Password}"
+                 RevealPassword="{Binding RevealPassword}"></TextBox>
+        <Button Name="PasswordToggle"
+                Command="{Binding TogglePasswordVisibilityCommand}"></Button>
+        <TextBox Name="ConfirmPassword"
+                 PasswordChar="•"
+                 Watermark="confirm password"
+                 Text="{Binding ConfirmedPassword}"
+                 RevealPassword="{Binding RevealConfirmedPassword}"></TextBox>
+        <Button Name="ConfirmedPasswordToggle"
+                Command="{Binding ToggleConfirmedPasswordVisibilityCommand}"></Button>
         <StackPanel Orientation="Horizontal"
                     HorizontalAlignment="Center"
                     Spacing="10">
-            <Button Command="{Binding LoginCommand}">Login</Button>
-            <Button Command="{Binding RegisterCommand}">Register</Button>
+            <Button 
+                Content="Login"
+                Command="{Binding LoginCommand}">
+                <Button.IsEnabled>
+                    <MultiBinding Converter="{x:Static BoolConverters.And}">
+                        <Binding ElementName="Username" 
+                                 Path="Text" 
+                                 Converter="{x:Static StringConverters.IsNotNullOrEmpty}" />
+                        <Binding ElementName="Password" 
+                                 Path="Text" 
+                                 Converter="{x:Static StringConverters.IsNotNullOrEmpty}" />
+                    </MultiBinding>
+                </Button.IsEnabled>
+            </Button>
+            <Button
+                Content="Register"
+                Command="{Binding RegisterCommand}">
+                <Button.IsEnabled>
+                    <MultiBinding Converter="{x:Static BoolConverters.And}">
+                        <Binding ElementName="Username" 
+                                 Path="Text" 
+                                 Converter="{x:Static StringConverters.IsNotNullOrEmpty}" />
+                        <Binding ElementName="Password" 
+                                 Path="Text" 
+                                 Converter="{x:Static StringConverters.IsNotNullOrEmpty}" />
+                        <Binding ElementName="ConfirmPassword" 
+                                 Path="Text" 
+                                 Converter="{x:Static StringConverters.IsNotNullOrEmpty}" />
+                    </MultiBinding>
+                </Button.IsEnabled>
+            </Button>
         </StackPanel>
     </StackPanel>
 </UserControl>
