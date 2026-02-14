@@ -1,0 +1,30 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="300" d:DesignHeight="400"
+             x:Class="client.Views.ChoreManagementView">
+    <StackPanel>
+        <DockPanel Margin="10">
+            <TextBlock VerticalAlignment="Center" Margin="0 0 10 0">Name</TextBlock>
+            <Button>change</Button>
+        </DockPanel>
+        <TextBox Margin="10 0" 
+                 Height="100"
+                 Watermark="Chore description..."></TextBox>
+        <DockPanel Margin="10">
+            <TextBlock VerticalAlignment="Center" Margin="0 0 10 0">Members:</TextBlock>
+            <Button HorizontalAlignment="Right">Add Member</Button>
+        </DockPanel>
+        <Separator></Separator>
+        <UniformGrid Margin="10">
+            <Button HorizontalAlignment="Stretch"
+                    HorizontalContentAlignment="Center"
+                    Margin="0 0 5 0">Leave</Button>
+            <Button HorizontalAlignment="Stretch"
+                    HorizontalContentAlignment="Center"
+                    Margin="5 0 0 0">Delete</Button>
+        </UniformGrid>
+        
+    </StackPanel>
+</UserControl>

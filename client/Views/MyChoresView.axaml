@@ -1,0 +1,44 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:views="clr-namespace:client.Views"
+             mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="450"
+             x:Class="client.Views.MyChoresView">
+    <DockPanel Height="450">
+        <DockPanel Margin="10" DockPanel.Dock="Top">
+            <TextBlock>My Chores:</TextBlock>
+            <ComboBox SelectedIndex="0" HorizontalAlignment="Right">
+                <ComboBoxItem>All</ComboBoxItem>
+                <ComboBoxItem>Owned</ComboBoxItem>
+                <ComboBoxItem>Admin</ComboBoxItem>
+                <ComboBoxItem>Participant</ComboBoxItem>
+            </ComboBox>
+        </DockPanel>
+        <Button DockPanel.Dock="Bottom"
+                VerticalAlignment="Bottom" 
+                HorizontalAlignment="Stretch"
+                HorizontalContentAlignment="Center"
+                VerticalContentAlignment="Center"
+                Margin="10">Create New Chore</Button>
+        <ScrollViewer DockPanel.Dock="Top">
+            <StackPanel>
+                <views:ChoreEntryView></views:ChoreEntryView>
+                <views:ChoreEntryView></views:ChoreEntryView>
+                <views:ChoreEntryView></views:ChoreEntryView>
+                <views:ChoreEntryView></views:ChoreEntryView>
+                <views:ChoreEntryView></views:ChoreEntryView>
+                <views:ChoreEntryView></views:ChoreEntryView>
+                <views:ChoreEntryView></views:ChoreEntryView>
+                <views:ChoreEntryView></views:ChoreEntryView>
+                <views:ChoreEntryView></views:ChoreEntryView>
+                <views:ChoreEntryView></views:ChoreEntryView>
+                <views:ChoreEntryView></views:ChoreEntryView>
+                <views:ChoreEntryView></views:ChoreEntryView>
+                <views:ChoreEntryView></views:ChoreEntryView>
+                <views:ChoreEntryView></views:ChoreEntryView>
+            </StackPanel>
+        </ScrollViewer>
+        
+    </DockPanel>
+</UserControl>
