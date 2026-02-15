@@ -1,0 +1,18 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="250" d:DesignHeight="40"
+             x:Class="client.Views.MemberEntryView">
+    <Panel>
+        <TextBlock VerticalAlignment="Center" Margin="10">Username</TextBlock>
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+            <TextBlock VerticalAlignment="Center">Privilege</TextBlock>
+                    <Button HorizontalAlignment="Right"
+                            Width="20"
+                            Height="20"
+                            Margin="10"></Button>
+        </StackPanel>
+        
+    </Panel>
+</UserControl>

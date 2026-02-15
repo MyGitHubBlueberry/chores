@@ -5,6 +5,7 @@
              xmlns:views="clr-namespace:client.Views"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="client.Views.HomeView">
+    <!-- use grid splitter -->
     <Grid ShowGridLines="True"
           ColumnDefinitions="*,*">
         <views:MyChoresView Grid.Row="0" Grid.Column="0"></views:MyChoresView>
