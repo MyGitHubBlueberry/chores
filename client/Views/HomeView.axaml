@@ -5,10 +5,14 @@
              xmlns:views="clr-namespace:client.Views"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="client.Views.HomeView">
-    <!-- use grid splitter -->
-    <Grid ShowGridLines="True"
-          ColumnDefinitions="*,*">
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" MinWidth="300"/> 
+            <ColumnDefinition Width="4" />
+            <ColumnDefinition Width="*" MinWidth="300"/>
+        </Grid.ColumnDefinitions>
         <views:MyChoresView Grid.Row="0" Grid.Column="0"></views:MyChoresView>
-        <views:TodoView Grid.Column="1"></views:TodoView>
+        <GridSplitter Grid.Column="1" Background="DimGray"></GridSplitter>
+        <views:TodoView Grid.Column="2"></views:TodoView>
     </Grid>
 </UserControl>
