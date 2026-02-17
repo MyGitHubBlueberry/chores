@@ -11,8 +11,16 @@
                     <Button HorizontalAlignment="Right"
                             Width="20"
                             Height="20"
-                            Margin="10"></Button>
+                            Margin="10"
+                            Click="Button_OnClick">
+                        <Button.ContextMenu>
+                            <ContextMenu Name="ContextMenu">
+                                <MenuItem Header="Promote"></MenuItem>
+                                <MenuItem Header="Demote"></MenuItem>
+                                <MenuItem Header="Kick"></MenuItem>
+                            </ContextMenu>
+                        </Button.ContextMenu>
+                    </Button>
         </StackPanel>
-        
     </Panel>
 </UserControl>

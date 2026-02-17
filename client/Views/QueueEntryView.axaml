@@ -1,0 +1,17 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="250" d:DesignHeight="40"
+             x:Class="client.Views.QueueEntryView">
+    <DockPanel>
+        <TextBlock VerticalAlignment="Center" Margin="10 0">Username</TextBlock>
+        <UniformGrid Columns="1" Rows="2" HorizontalAlignment="Right" DockPanel.Dock="Right" Width="30">
+            <Button VerticalAlignment="Stretch" 
+                    HorizontalAlignment="Stretch"></Button>
+            <Button VerticalAlignment="Stretch" 
+                    HorizontalAlignment="Stretch"></Button>
+        </UniformGrid>
+        <TextBlock HorizontalAlignment="Right" VerticalAlignment="Center" DockPanel.Dock="Right" Margin="10">time</TextBlock>
+    </DockPanel>
+</UserControl>

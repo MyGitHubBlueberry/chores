@@ -17,6 +17,8 @@
         <entry key="client/Views/MainWindow.axaml" value="client/client.csproj" />
         <entry key="client/Views/MemberEntryView.axaml" value="client/client.csproj" />
         <entry key="client/Views/MyChoresView.axaml" value="client/client.csproj" />
+        <entry key="client/Views/QueueEntry View.axaml" value="client/client.csproj" />
+        <entry key="client/Views/QueueEntryView.axaml" value="client/client.csproj" />
         <entry key="client/Views/TodoChoreView.axaml" value="client/client.csproj" />
         <entry key="client/Views/TodoView.axaml" value="client/client.csproj" />
         <entry key="client/Views/UserControl1.axaml" value="client/client.csproj" />
