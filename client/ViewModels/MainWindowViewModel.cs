@@ -11,16 +11,26 @@ public partial class MainWindowViewModel : ViewModelBase
 {
     private readonly Client client;
     private readonly AuthViewModel authViewModel;
+    private readonly MyChoresViewModel myChoresViewModel;
     [ObservableProperty] ViewModelBase currentView;
+    [ObservableProperty] ViewModelBase floatingView;
+    [ObservableProperty] bool isFloatingViewVisible;
     public MainWindowViewModel(Client client)
     {
         this.client = client;
         var connectionVm = new ConnectionViewModel(client);
         authViewModel= new AuthViewModel(client);
+        myChoresViewModel = new MyChoresViewModel();
         connectionVm.OnConnectionSuccess += () =>
             CurrentView = authViewModel;
         authViewModel.OnLoginSuccess += () =>
-            CurrentView = new HomeViewModel();
+            CurrentView = new HomeViewModel(myChoresViewModel);
+        myChoresViewModel.OnCreateChoreRequested += () =>
+        {
+            Console.WriteLine("you should see floating window now");
+            FloatingView = new CreateChoreViewModel();
+            IsFloatingViewVisible = true;
+        };
         CurrentView = connectionVm;
     }
     

@@ -14,5 +14,11 @@
              to set the actual DataContext for runtime, set the DataContext property in code (look at App.axaml.cs) -->
         <vm:MainWindowViewModel/>
     </Design.DataContext>
-    <UserControl Content="{Binding CurrentView}"></UserControl>
+    <Panel>
+        <UserControl Content="{Binding CurrentView}"></UserControl>
+        <Panel IsVisible="{Binding IsFloatingViewVisible}">
+            <Border Background="#80000000" />
+            <ContentControl Content="{Binding FloatingView}" />
+        </Panel>
+    </Panel>
 </Window>

@@ -13,7 +13,8 @@
             <ColumnDefinition Width="4" />
             <ColumnDefinition Width="*" MinWidth="300"/>
         </Grid.ColumnDefinitions>
-        <views:MyChoresView Grid.Row="0" Grid.Column="0"></views:MyChoresView>
+        <!-- <views:MyChoresView Grid.Row="0" Grid.Column="0"></views:MyChoresView> -->
+        <ContentControl Content="{Binding MyChoresVM}" />
         <GridSplitter Grid.Column="1" Background="DimGray"></GridSplitter>
         <views:TodoView Grid.Column="2"></views:TodoView>
     </Grid>
