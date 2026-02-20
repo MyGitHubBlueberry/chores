@@ -7,14 +7,16 @@
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="700"
              x:Class="client.Views.HomeView"
              x:DataType="vm:HomeViewModel">
+    <Design.DataContext>
+        <vm:HomeViewModel/>
+    </Design.DataContext>
     <Grid>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*" MinWidth="300"/> 
             <ColumnDefinition Width="4" />
             <ColumnDefinition Width="*" MinWidth="300"/>
         </Grid.ColumnDefinitions>
-        <!-- <views:MyChoresView Grid.Row="0" Grid.Column="0"></views:MyChoresView> -->
-        <ContentControl Content="{Binding MyChoresVM}" />
+        <views:MyChoresView DataContext="{Binding MyChoresVM}" Grid.Row="0" Grid.Column="0"/>
         <GridSplitter Grid.Column="1" Background="DimGray"></GridSplitter>
         <views:TodoView Grid.Column="2"></views:TodoView>
     </Grid>
