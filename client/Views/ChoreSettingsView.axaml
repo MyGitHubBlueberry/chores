@@ -1,0 +1,54 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:views="clr-namespace:client.Views"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="client.Views.ChoreSettingsView">
+    <StackPanel>
+            <DockPanel Margin="10" DockPanel.Dock="Top">
+                <TextBlock VerticalAlignment="Center" Margin="0 0 10 0">Chore Name</TextBlock>
+                <Button>change</Button>
+                <Button HorizontalAlignment="Right">x</Button>
+            </DockPanel>
+            <TextBox DockPanel.Dock="Top"
+                     Margin="10 0"
+                     Height="100"
+                     Watermark="Chore description...">
+            </TextBox>
+            <Expander DockPanel.Dock="Top" HorizontalAlignment="Stretch" Margin="10">
+                <Expander.Header>
+                    <Panel>
+                        <TextBlock VerticalAlignment="Center">Members:</TextBlock>
+                        <Button HorizontalAlignment="Right">Add Member</Button>
+                    </Panel>
+                </Expander.Header>
+                <ScrollViewer DockPanel.Dock="Top">
+                    <StackPanel>
+                        <views:MemberEntryView></views:MemberEntryView>
+                        <views:MemberEntryView></views:MemberEntryView>
+                        <views:MemberEntryView></views:MemberEntryView>
+                        <views:MemberEntryView></views:MemberEntryView>
+                        <views:MemberEntryView></views:MemberEntryView>
+                    </StackPanel>
+                </ScrollViewer>
+            </Expander>
+            <Expander DockPanel.Dock="Top" HorizontalAlignment="Stretch" Margin="10 0 10 0">
+                <Expander.Header>
+                    <Panel>
+                        <TextBlock VerticalAlignment="Center">Queue:</TextBlock>
+                        <Button HorizontalAlignment="Right">Add Member</Button>
+                    </Panel>
+                </Expander.Header>
+                <ScrollViewer DockPanel.Dock="Top">
+                    <StackPanel>
+                        <views:QueueEntryView></views:QueueEntryView>
+                        <views:QueueEntryView></views:QueueEntryView>
+                        <views:QueueEntryView></views:QueueEntryView>
+                        <views:QueueEntryView></views:QueueEntryView>
+                        <views:QueueEntryView></views:QueueEntryView>
+                    </StackPanel>
+                </ScrollViewer>
+            </Expander>
+    </StackPanel>
+</UserControl>

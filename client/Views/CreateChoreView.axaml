@@ -1,0 +1,14 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:views="clr-namespace:client.Views"
+             mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="450"
+             x:Class="client.Views.CreateChoreView">
+    <ScrollViewer>
+        <DockPanel>
+            <views:ChoreSettingsView DockPanel.Dock="Top"></views:ChoreSettingsView>
+            <Button VerticalAlignment="Bottom" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="10">Create</Button>
+        </DockPanel>
+    </ScrollViewer>
+</UserControl>

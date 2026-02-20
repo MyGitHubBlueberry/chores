@@ -9,8 +9,10 @@
         <entry key="client/Views/ChoreEntryView.axaml" value="client/client.csproj" />
         <entry key="client/Views/ChoreManagementEntryView.axaml" value="client/client.csproj" />
         <entry key="client/Views/ChoreManagementView.axaml" value="client/client.csproj" />
+        <entry key="client/Views/ChoreSettingsView.axaml" value="client/client.csproj" />
         <entry key="client/Views/ConnectionView.axaml" value="client/client.csproj" />
         <entry key="client/Views/ConnectionWindow.axaml" value="client/client.csproj" />
+        <entry key="client/Views/CreateChoreView.axaml" value="client/client.csproj" />
         <entry key="client/Views/HomeView.axaml" value="client/client.csproj" />
         <entry key="client/Views/Login.axaml" value="client/client.csproj" />
         <entry key="client/Views/LoginView.axaml" value="client/client.csproj" />

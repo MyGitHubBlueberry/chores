@@ -8,68 +8,36 @@
              Width="300"
              Height="450"
              MaxHeight="450">
-    <DockPanel>
-        <DockPanel Margin="10" DockPanel.Dock="Top">
-            <TextBlock VerticalAlignment="Center" Margin="0 0 10 0">Chore Name</TextBlock>
-            <Button>change</Button>
+    <ScrollViewer>
+        <DockPanel>
+            <views:ChoreSettingsView DockPanel.Dock="Top"></views:ChoreSettingsView>
+            <StackPanel VerticalAlignment="Bottom" DockPanel.Dock="Bottom">
+                <UniformGrid Margin="10" Rows="1">
+                    <Button HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Center"
+                            Margin="0 0 5 0">
+                        Save Changes
+                    </Button>
+                    <Button HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Center"
+                            Margin="5 0 0 0">
+                        Cancel
+                    </Button>
+                </UniformGrid>
+                <Separator></Separator>
+                <UniformGrid Rows="1" Margin="10">
+                    <Button HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Center"
+                            Margin="0 0 5 0">
+                        Leave
+                    </Button>
+                    <Button HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Center"
+                            Margin="5 0 0 0">
+                        Delete
+                    </Button>
+                </UniformGrid>
+            </StackPanel>
         </DockPanel>
-        <TextBox DockPanel.Dock="Top"
-                 Margin="10 0" 
-                 Height="100"
-                 Watermark="Chore description..."></TextBox>
-        <Expander DockPanel.Dock="Top" HorizontalAlignment="Stretch" Margin="10">
-            <Expander.Header>
-                <Panel>
-                    <TextBlock VerticalAlignment="Center">Members:</TextBlock>
-                    <Button HorizontalAlignment="Right">Add Member</Button>
-                </Panel>
-            </Expander.Header>
-            <ScrollViewer DockPanel.Dock="Top">
-                <StackPanel>
-                    <views:MemberEntryView></views:MemberEntryView>
-                    <views:MemberEntryView></views:MemberEntryView>
-                    <views:MemberEntryView></views:MemberEntryView>
-                    <views:MemberEntryView></views:MemberEntryView>
-                    <views:MemberEntryView></views:MemberEntryView>
-                </StackPanel>
-            </ScrollViewer>
-        </Expander>
-        <Expander DockPanel.Dock="Top" HorizontalAlignment="Stretch" Margin="10 0 10 0">
-            <Expander.Header>
-                <Panel>
-                    <TextBlock VerticalAlignment="Center">Queue:</TextBlock>
-                    <Button HorizontalAlignment="Right">Add Member</Button>
-                </Panel>
-            </Expander.Header>
-            <ScrollViewer DockPanel.Dock="Top">
-                <StackPanel>
-                    <views:QueueEntryView></views:QueueEntryView>
-                    <views:QueueEntryView></views:QueueEntryView>
-                    <views:QueueEntryView></views:QueueEntryView>
-                    <views:QueueEntryView></views:QueueEntryView>
-                    <views:QueueEntryView></views:QueueEntryView>
-                </StackPanel>
-            </ScrollViewer>
-        </Expander>
-        <StackPanel VerticalAlignment="Bottom" DockPanel.Dock="Bottom">
-            <UniformGrid Margin="10" Rows="1">
-                <Button HorizontalAlignment="Stretch"
-                        HorizontalContentAlignment="Center"
-                        Margin="0 0 5 0">Save Changes</Button>
-                <Button HorizontalAlignment="Stretch"
-                        HorizontalContentAlignment="Center"
-                        Margin="5 0 0 0">Cancel</Button>
-            </UniformGrid>
-            <Separator></Separator>
-            <UniformGrid Rows="1" Margin="10">
-                <Button HorizontalAlignment="Stretch"
-                        HorizontalContentAlignment="Center"
-                        Margin="0 0 5 0">Leave</Button>
-                <Button HorizontalAlignment="Stretch"
-                        HorizontalContentAlignment="Center"
-                        Margin="5 0 0 0">Delete</Button>
-            </UniformGrid>
-        </StackPanel>
-        
-    </DockPanel>
+    </ScrollViewer>
 </UserControl>
