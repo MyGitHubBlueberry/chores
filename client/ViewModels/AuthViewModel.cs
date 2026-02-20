@@ -11,6 +11,7 @@ namespace client.ViewModels;
 
 public partial class AuthViewModel : ViewModelBase
 {
+    public event Action OnLoginSuccess;
     private string username;
     private string password;
     private string confirmedPassword;
@@ -49,6 +50,7 @@ public partial class AuthViewModel : ViewModelBase
     public AuthViewModel(Client client)
     {
         model = new(client);
+        model.OnLoginSuccess += () => OnLoginSuccess?.Invoke();
     }
 
     public AuthViewModel() { }

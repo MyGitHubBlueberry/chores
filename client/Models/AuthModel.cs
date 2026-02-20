@@ -12,6 +12,7 @@ namespace client.ViewModels;
 public class AuthModel
 {
     private readonly Client client;
+    public event Action OnLoginSuccess;
 
     public AuthModel(Client client)
     {
@@ -31,7 +32,8 @@ public class AuthModel
                 Console.WriteLine("Result is null: " + (result is null));
                 if (result.IsSuccess)
                 {
-                    Console.WriteLine("Client logged in sucessfully");
+                    Console.WriteLine("Client logged in successfully");
+                    OnLoginSuccess.Invoke();
                 }
                 else
                 {

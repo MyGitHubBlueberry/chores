@@ -25,28 +25,42 @@
                  PasswordChar="•"
                  Watermark="password"
                  Text="{Binding Password}"
-                 RevealPassword="{Binding RevealPassword}"></TextBox>
-        <Button Name="PasswordToggle"
-                Command="{Binding TogglePasswordVisibilityCommand}"></Button>
+                 RevealPassword="{Binding RevealPassword}">
+            <TextBox.InnerRightContent>
+                <Button Name="PasswordToggle"
+                        Command="{Binding TogglePasswordVisibilityCommand}"
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Center"
+                        Margin="0 0 5 0">
+                </Button>
+            </TextBox.InnerRightContent>
+        </TextBox>
         <TextBox Name="ConfirmPassword"
                  PasswordChar="•"
                  Watermark="confirm password"
                  Text="{Binding ConfirmedPassword}"
-                 RevealPassword="{Binding RevealConfirmedPassword}"></TextBox>
-        <Button Name="ConfirmedPasswordToggle"
-                Command="{Binding ToggleConfirmedPasswordVisibilityCommand}"></Button>
-        <StackPanel Orientation="Horizontal"
-                    HorizontalAlignment="Center"
-                    Spacing="10">
+                 RevealPassword="{Binding RevealConfirmedPassword}">
+            <TextBox.InnerRightContent>
+                <Button Name="ConfirmedPasswordToggle"
+                        Command="{Binding ToggleConfirmedPasswordVisibilityCommand}"
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Center"
+                        Margin="0 0 5 0"></Button>
+            </TextBox.InnerRightContent>
+        </TextBox>
+        
+        <UniformGrid Rows="1" ColumnSpacing="10">
             <Button 
                 Content="Login"
-                Command="{Binding LoginCommand}">
+                Command="{Binding LoginCommand}"
+                HorizontalAlignment="Stretch"
+                HorizontalContentAlignment="Center">
                 <Button.IsEnabled>
                     <MultiBinding Converter="{x:Static BoolConverters.And}">
                         <Binding ElementName="Username" 
                                  Path="Text" 
                                  Converter="{x:Static StringConverters.IsNotNullOrEmpty}" />
-                        <Binding ElementName="Password" 
+                        <Binding ElementName="Password"
                                  Path="Text" 
                                  Converter="{x:Static StringConverters.IsNotNullOrEmpty}" />
                     </MultiBinding>
@@ -54,7 +68,9 @@
             </Button>
             <Button
                 Content="Register"
-                Command="{Binding RegisterCommand}">
+                Command="{Binding RegisterCommand}"
+                HorizontalAlignment="Stretch"
+                HorizontalContentAlignment="Center">
                 <Button.IsEnabled>
                     <MultiBinding Converter="{x:Static BoolConverters.And}">
                         <Binding ElementName="Username" 
@@ -69,6 +85,6 @@
                     </MultiBinding>
                 </Button.IsEnabled>
             </Button>
-        </StackPanel>
+        </UniformGrid>
     </StackPanel>
 </UserControl>
