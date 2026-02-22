@@ -4,7 +4,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:views="clr-namespace:client.Views"
              xmlns:vm="using:client.ViewModels"
-             mc:Ignorable="d" d:DesignWidth="1920" d:DesignHeight="1080"
+             mc:Ignorable="d" d:DesignWidth="820" d:DesignHeight="580"
              x:Class="client.Views.CreateChoreView"
              x:DataType="vm:CreateChoreViewModel"
              >

@@ -9,7 +9,6 @@ public partial class CreateChoreViewModel : ViewModelBase
     
     public CreateChoreViewModel()
     {
-        // Initialize it so it's ready for the view
         SettingsViewModel = new ChoreSettingsViewModel();
     }
 }

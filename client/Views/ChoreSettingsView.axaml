@@ -13,7 +13,8 @@
                          Margin="0 0 10 0" 
                          Watermark="Chore name..."
                          Text="{Binding Name}"></TextBox>
-                <Button HorizontalAlignment="Right">x</Button>
+                <Button HorizontalAlignment="Right"
+                        Command="{Binding CloseChoreSettingsCommand}">x</Button>
             </DockPanel>
             <TextBox DockPanel.Dock="Top"
                      Margin="10 0"
