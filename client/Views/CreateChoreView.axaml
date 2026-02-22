@@ -15,7 +15,9 @@
                     DataContext="{Binding SettingsViewModel}">
                 </views:ChoreSettingsView>
                 <Button VerticalAlignment="Bottom" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
-                        Margin="10">
+                        Margin="10"
+                        IsEnabled="{Binding
+                            Path=!SettingsViewModel.HasErrors}">
                     Create
                 </Button>
             </DockPanel>
