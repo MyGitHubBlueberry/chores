@@ -3,18 +3,23 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:views="clr-namespace:client.Views"
+             xmlns:vm="clr-namespace:client.ViewModels"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-             x:Class="client.Views.ChoreSettingsView">
+             x:Class="client.Views.ChoreSettingsView"
+             x:DataType="vm:ChoreSettingsViewModel">
     <StackPanel>
-            <DockPanel Margin="10" DockPanel.Dock="Top">
-                <TextBlock VerticalAlignment="Center" Margin="0 0 10 0">Chore Name</TextBlock>
-                <Button>change</Button>
+        <DockPanel Margin="10" DockPanel.Dock="Top">
+                <TextBox VerticalAlignment="Center" 
+                         Margin="0 0 10 0" 
+                         Watermark="Chore name..."
+                         Text="{Binding Name}"></TextBox>
                 <Button HorizontalAlignment="Right">x</Button>
             </DockPanel>
             <TextBox DockPanel.Dock="Top"
                      Margin="10 0"
                      Height="100"
-                     Watermark="Chore description...">
+                     Watermark="Chore description..."
+                     Text="{Binding Description}">
             </TextBox>
             <Expander DockPanel.Dock="Top" HorizontalAlignment="Stretch" Margin="10">
                 <Expander.Header>

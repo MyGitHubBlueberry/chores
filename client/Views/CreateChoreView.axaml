@@ -6,14 +6,19 @@
              xmlns:vm="using:client.ViewModels"
              mc:Ignorable="d" d:DesignWidth="1920" d:DesignHeight="1080"
              x:Class="client.Views.CreateChoreView"
-             x:DataType="vm:CreateChoreViewModel">
-    <Border Background="White" Margin="20" Width="800" MinWidth="450"
-            MinHeight="400">
-    <ScrollViewer>
-        <DockPanel>
-            <views:ChoreSettingsView DockPanel.Dock="Top"></views:ChoreSettingsView>
-            <Button VerticalAlignment="Bottom" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="10">Create</Button>
-        </DockPanel>
+             x:DataType="vm:CreateChoreViewModel"
+             >
+    <Border Background="White" Margin="20" Width="800">
+        <ScrollViewer>
+            <DockPanel>
+                <views:ChoreSettingsView DockPanel.Dock="Top" 
+                    DataContext="{Binding SettingsViewModel}">
+                </views:ChoreSettingsView>
+                <Button VerticalAlignment="Bottom" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                        Margin="10">
+                    Create
+                </Button>
+            </DockPanel>
         </ScrollViewer>
     </Border>
 </UserControl>

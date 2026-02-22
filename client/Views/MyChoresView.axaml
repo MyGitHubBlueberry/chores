@@ -23,7 +23,7 @@
                 HorizontalContentAlignment="Center"
                 VerticalContentAlignment="Center"
                 Margin="10"
-                Command="{Binding CreateChoreCommand}"
+                Command="{Binding OpenCreateChoreViewCommand}"
                 >Create New Chore</Button>
         <ScrollViewer DockPanel.Dock="Top">
             <StackPanel>
