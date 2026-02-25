@@ -27,8 +27,6 @@ public partial class ChoreSettingsViewModel : ViewModelBase
     [RelayCommand]
     private void CloseChoreSettings()
     {
-        //reset unsaved stuff
-        //fire an event
         OnCloseSettingsRequested.Invoke();
     }
 }
