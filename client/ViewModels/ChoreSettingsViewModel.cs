@@ -13,11 +13,19 @@ public partial class ChoreSettingsViewModel : ViewModelBase
     [NotifyDataErrorInfo]
     [Required(ErrorMessage = "Chore name is required")]
     private string name;
-
-    [ObservableProperty] 
-    [NotifyDataErrorInfo]
-    [Required(ErrorMessage = "Description is required")]
+    [ObservableProperty]
     private string description;
+
+    [ObservableProperty] private DateTimeOffset? startMDY;
+    [ObservableProperty] private TimeSpan? startHM;
+    [ObservableProperty] private DateTimeOffset? endMDY;
+    [ObservableProperty] private TimeSpan? endHM;
+    [ObservableProperty] private int entryDurationDay;
+    [ObservableProperty] private int entryDurationHour;
+    [ObservableProperty] private int entryDurationMinute;
+    [ObservableProperty] private int intervalDay;
+    [ObservableProperty] private int intervalHour;
+    [ObservableProperty] private int intervalMinute;
 
     public ChoreSettingsViewModel()
     {

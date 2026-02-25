@@ -9,107 +9,126 @@
              x:Class="client.Views.ChoreSettingsView"
              x:DataType="vm:ChoreSettingsViewModel">
     <StackPanel Margin="10">
-        <DockPanel  DockPanel.Dock="Top">
-                <TextBox VerticalAlignment="Center" 
-                         Margin="0 0 10 0" 
-                         Watermark="Chore name..."
-                         Text="{Binding Name}"></TextBox>
-                <Button HorizontalAlignment="Right"
-                        Command="{Binding CloseChoreSettingsCommand}">x</Button>
-            </DockPanel>
-            <TextBox DockPanel.Dock="Top"
-                     Margin="0 10"
-                     Height="100"
-                     Watermark="Chore description..."
-                     Text="{Binding Description}">
+        <DockPanel DockPanel.Dock="Top">
+            <TextBox VerticalAlignment="Center"
+                     Margin="0 0 10 0"
+                     Watermark="Chore name..."
+                     Text="{Binding Name}">
             </TextBox>
-            <TextBlock>Start date and time:</TextBlock>
-            <StackPanel Orientation="Horizontal" Margin="0 10">
-                <DatePicker></DatePicker>
-                <TimePicker ClockIdentifier="24HourClock"
-                            MinuteIncrement="5"
-                            Margin="10 0"></TimePicker>
-            </StackPanel>
-        <TextBlock>End date and time:</TextBlock>
+            <Button HorizontalAlignment="Right"
+                    Command="{Binding CloseChoreSettingsCommand}">
+                x
+            </Button>
+        </DockPanel>
+        <TextBox DockPanel.Dock="Top"
+                 Margin="0 10"
+                 Height="100"
+                 Watermark="Chore description..."
+                 Text="{Binding Description}">
+        </TextBox>
+        <TextBlock>Start date and time:</TextBlock>
         <StackPanel Orientation="Horizontal" Margin="0 10">
-            <DatePicker></DatePicker>
+            <DatePicker SelectedDate="{Binding StartMDY}"></DatePicker>
             <TimePicker ClockIdentifier="24HourClock"
                         MinuteIncrement="5"
-                        Margin="10 0"></TimePicker>
+                        Margin="10 0"
+                        SelectedTime="{Binding StartHM}">
+            </TimePicker>
+        </StackPanel>
+        <TextBlock>End date and time:</TextBlock>
+        <StackPanel Orientation="Horizontal" Margin="0 10">
+            <DatePicker SelectedDate="{Binding EndMDY}"></DatePicker>
+            <TimePicker ClockIdentifier="24HourClock"
+                        MinuteIncrement="5"
+                        Margin="10 0"
+                        SelectedTime="{Binding EndHM}">
+            </TimePicker>
         </StackPanel>
         <TextBlock>Chore entry duration:</TextBlock>
         <StackPanel Orientation="Horizontal" Margin="0 10">
-            <TextBlock VerticalAlignment="Center" >Days:</TextBlock>
+            <TextBlock VerticalAlignment="Center">Days:</TextBlock>
             <NumericUpDown Margin="10  0"
                            Minimum="0" Maximum="6"
                            Value="0"
-                           FormatString="0"></NumericUpDown>
+                           FormatString="0"
+                           Text="{Binding EntryDurationDay}">
+            </NumericUpDown>
             <TextBlock VerticalAlignment="Center">Hours:</TextBlock>
             <NumericUpDown Margin="10  0"
                            Minimum="0"
                            Maximum="23"
                            Value="0"
-                           FormatString="0"></NumericUpDown>
+                           FormatString="0"
+                           Text="{Binding EntryDurationHour}">
+            </NumericUpDown>
             <TextBlock VerticalAlignment="Center">Minutes:</TextBlock>
             <NumericUpDown Margin="10  0"
                            Minimum="0"
                            Maximum="59"
                            Value="0"
-                           FormatString="0"></NumericUpDown>
+                           FormatString="0"
+                           Text="{Binding EntryDurationMinute}">
+            </NumericUpDown>
         </StackPanel>
         <TextBlock>Interval between chore entries:</TextBlock>
         <StackPanel Orientation="Horizontal" Margin="0 10">
-            <TextBlock VerticalAlignment="Center" >Days:</TextBlock>
+            <TextBlock VerticalAlignment="Center">Days:</TextBlock>
             <NumericUpDown Margin="10  0"
                            Minimum="0" Maximum="6"
                            Value="0"
-                           FormatString="0"></NumericUpDown>
+                           FormatString="0"
+                           Text="{Binding IntervalDay}">
+            </NumericUpDown>
             <TextBlock VerticalAlignment="Center">Hours:</TextBlock>
             <NumericUpDown Margin="10  0"
                            Minimum="0"
                            Maximum="23"
                            Value="0"
-                           FormatString="0"></NumericUpDown>
+                           FormatString="0"
+                           Text="{Binding IntervalHour}">
+            </NumericUpDown>
             <TextBlock VerticalAlignment="Center">Minutes:</TextBlock>
             <NumericUpDown Margin="10  0"
                            Minimum="0"
                            Maximum="59"
                            Value="0"
-                           FormatString="0"></NumericUpDown>
+                           FormatString="0"
+                           Text="{Binding IntervalMinute}">
+            </NumericUpDown>
         </StackPanel>
-            <!-- <Expander DockPanel.Dock="Top" HorizontalAlignment="Stretch" Margin="10"> -->
-            <!--     <Expander.Header> -->
-            <!--         <Panel> -->
-            <!--             <TextBlock VerticalAlignment="Center">Members:</TextBlock> -->
-            <!--             <Button HorizontalAlignment="Right">Add Member</Button> -->
-            <!--         </Panel> -->
-            <!--     </Expander.Header> -->
-            <!--     <ScrollViewer DockPanel.Dock="Top"> -->
-            <!--         <StackPanel> -->
-            <!--             <views:MemberEntryView></views:MemberEntryView> -->
-            <!--             <views:MemberEntryView></views:MemberEntryView> -->
-            <!--             <views:MemberEntryView></views:MemberEntryView> -->
-            <!--             <views:MemberEntryView></views:MemberEntryView> -->
-            <!--             <views:MemberEntryView></views:MemberEntryView> -->
-            <!--         </StackPanel> -->
-            <!--     </ScrollViewer> -->
-            <!-- </Expander> -->
-            <!-- <Expander DockPanel.Dock="Top" HorizontalAlignment="Stretch" Margin="10 0 10 0"> -->
-            <!--     <Expander.Header> -->
-            <!--         <Panel> -->
-            <!--             <TextBlock VerticalAlignment="Center">Queue:</TextBlock> -->
-            <!--             <Button HorizontalAlignment="Right">Add Member</Button> -->
-            <!--         </Panel> -->
-            <!--     </Expander.Header> -->
-            <!--     <ScrollViewer DockPanel.Dock="Top"> -->
-            <!--         <StackPanel> -->
-            <!--             <views:QueueEntryView></views:QueueEntryView> -->
-            <!--             <views:QueueEntryView></views:QueueEntryView> -->
-            <!--             <views:QueueEntryView></views:QueueEntryView> -->
-            <!--             <views:QueueEntryView></views:QueueEntryView> -->
-            <!--             <views:QueueEntryView></views:QueueEntryView> -->
-            <!--         </StackPanel> -->
-            <!--     </ScrollViewer> -->
-            <!-- </Expander> -->
+        <!-- <Expander DockPanel.Dock="Top" HorizontalAlignment="Stretch" Margin="10"> -->
+        <!--     <Expander.Header> -->
+        <!--         <Panel> -->
+        <!--             <TextBlock VerticalAlignment="Center">Members:</TextBlock> -->
+        <!--             <Button HorizontalAlignment="Right">Add Member</Button> -->
+        <!--         </Panel> -->
+        <!--     </Expander.Header> -->
+        <!--     <ScrollViewer DockPanel.Dock="Top"> -->
+        <!--         <StackPanel> -->
+        <!--             <views:MemberEntryView></views:MemberEntryView> -->
+        <!--             <views:MemberEntryView></views:MemberEntryView> -->
+        <!--             <views:MemberEntryView></views:MemberEntryView> -->
+        <!--             <views:MemberEntryView></views:MemberEntryView> -->
+        <!--             <views:MemberEntryView></views:MemberEntryView> -->
+        <!--         </StackPanel> -->
+        <!--     </ScrollViewer> -->
+        <!-- </Expander> -->
+        <!-- <Expander DockPanel.Dock="Top" HorizontalAlignment="Stretch" Margin="10 0 10 0"> -->
+        <!--     <Expander.Header> -->
+        <!--         <Panel> -->
+        <!--             <TextBlock VerticalAlignment="Center">Queue:</TextBlock> -->
+        <!--             <Button HorizontalAlignment="Right">Add Member</Button> -->
+        <!--         </Panel> -->
+        <!--     </Expander.Header> -->
+        <!--     <ScrollViewer DockPanel.Dock="Top"> -->
+        <!--         <StackPanel> -->
+        <!--             <views:QueueEntryView></views:QueueEntryView> -->
+        <!--             <views:QueueEntryView></views:QueueEntryView> -->
+        <!--             <views:QueueEntryView></views:QueueEntryView> -->
+        <!--             <views:QueueEntryView></views:QueueEntryView> -->
+        <!--             <views:QueueEntryView></views:QueueEntryView> -->
+        <!--         </StackPanel> -->
+        <!--     </ScrollViewer> -->
+        <!-- </Expander> -->
     </StackPanel>
 </UserControl>
