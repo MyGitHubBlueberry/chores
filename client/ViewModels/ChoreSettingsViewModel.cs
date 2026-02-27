@@ -9,15 +9,9 @@ public partial class ChoreSettingsViewModel : ViewModelBase
 {
     public event Action OnCloseSettingsRequested;
 
-    public DateTime? StartDate
-    {
-        get => StartMDY?.DateTime + StartHM;
-    }
+    public DateTime? StartDate => StartMDY?.Date + StartHM;
 
-    public DateTime? EndDate
-    {
-        get => EndMDY?.DateTime + EndHM;
-    }
+    public DateTime? EndDate => EndMDY?.Date + EndHM;
 
     public TimeSpan? Duration =>
         new TimeSpan(EntryDurationDay, EntryDurationHour, EntryDurationMinute, 0) is var time && time == TimeSpan.Zero
@@ -39,11 +33,16 @@ public partial class ChoreSettingsViewModel : ViewModelBase
     [CustomValidation(typeof(ChoreSettingsViewModel), nameof(DateIsNotInThePast))]
     [NotifyDataErrorInfo]
     [ObservableProperty] private DateTimeOffset? startMDY;
+    [CustomValidation(typeof(ChoreSettingsViewModel), nameof(StartTimeIsNotInThePast))]
+    [NotifyDataErrorInfo]
     [ObservableProperty] private TimeSpan? startHM;
 
     [CustomValidation(typeof(ChoreSettingsViewModel), nameof(DateIsNotInThePast))]
+    [CustomValidation(typeof(ChoreSettingsViewModel), nameof(EndDateIsAfterStartDate))]
     [NotifyDataErrorInfo]
     [ObservableProperty] private DateTimeOffset? endMDY;
+    [CustomValidation(typeof(ChoreSettingsViewModel), nameof(EndTimeIsAfterStartDate))]
+    [NotifyDataErrorInfo]
     [ObservableProperty] private TimeSpan? endHM;
     [ObservableProperty] private int entryDurationDay;
     [ObservableProperty] private int entryDurationHour;
@@ -67,9 +66,60 @@ public partial class ChoreSettingsViewModel : ViewModelBase
     {
         if (offset is null)
             return ValidationResult.Success!;
-
-        return offset?.UtcDateTime > DateTime.UtcNow 
+        return offset?.Date >= DateTime.Now.Date 
             ? ValidationResult.Success!
-            : new ValidationResult("This can't be in the past");
+            : new ValidationResult("The date can't be in the past");
+    }
+    
+    public static ValidationResult StartTimeIsNotInThePast(TimeSpan? time, ValidationContext ctx)
+    {
+        var instance = (ChoreSettingsViewModel)ctx.ObjectInstance;
+        if (instance.StartMDY is null)
+        {
+            Console.WriteLine("instance.StartMDY is null");
+            return ValidationResult.Success!;
+        }
+
+        if (time is null)
+        {
+            Console.WriteLine("time is null");   
+            return ValidationResult.Success!;
+        }
+        if (instance.StartDate > DateTime.UtcNow)
+        {
+            Console.WriteLine("instance.StartMDY is null");
+            return ValidationResult.Success!;
+        }
+        else
+        {
+            return new ValidationResult("Start date can't be in the past");
+        }
+        // return instance.StartDate > DateTime.UtcNow 
+        //     ? ValidationResult.Success!
+        //     : new ValidationResult("Start date can't be in the past");
+    }
+    
+    public static ValidationResult EndDateIsAfterStartDate(DateTimeOffset? offset, ValidationContext ctx)
+    {
+        if (offset is null)
+            return ValidationResult.Success!;
+        var vm = (ChoreSettingsViewModel)ctx.ObjectInstance;
+        if (vm.StartMDY is null) 
+            return ValidationResult.Success!;
+        if (offset < vm.StartMDY)
+            return new ValidationResult("End date can't be before start date");
+        return ValidationResult.Success!;
+    }
+    
+    public static ValidationResult EndTimeIsAfterStartDate(TimeSpan? time, ValidationContext ctx)
+    {
+        var instance = (ChoreSettingsViewModel)ctx.ObjectInstance;
+        if (instance.StartDate is null)
+            return ValidationResult.Success!;
+        if (time is null)
+            return ValidationResult.Success!;
+        return instance.EndDate > instance.StartDate
+            ? ValidationResult.Success!
+            : new ValidationResult("End date should be after start date");
     }
 }
