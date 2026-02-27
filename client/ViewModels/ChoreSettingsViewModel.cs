@@ -8,16 +8,41 @@ namespace client.ViewModels;
 public partial class ChoreSettingsViewModel : ViewModelBase
 {
     public event Action OnCloseSettingsRequested;
-    
-    [ObservableProperty] 
-    [NotifyDataErrorInfo]
-    [Required(ErrorMessage = "Chore name is required")]
-    private string name;
-    [ObservableProperty]
-    private string description;
 
+    public DateTime? StartDate
+    {
+        get => StartMDY?.DateTime + StartHM;
+    }
+
+    public DateTime? EndDate
+    {
+        get => EndMDY?.DateTime + EndHM;
+    }
+
+    public TimeSpan? Duration =>
+        new TimeSpan(EntryDurationDay, EntryDurationHour, EntryDurationMinute, 0) is var time && time == TimeSpan.Zero
+            ? null
+            : time;
+
+
+    public TimeSpan? Interval =>
+        new TimeSpan(IntervalDay, IntervalHour, IntervalMinute, 0) is var time && time == TimeSpan.Zero
+            ? null
+            : time;
+    
+    [Required(ErrorMessage = "Chore name is required")]
+    [NotifyDataErrorInfo]
+    [ObservableProperty] private string name;
+    [ObservableProperty] private string description;
+
+    
+    [CustomValidation(typeof(ChoreSettingsViewModel), nameof(DateIsNotInThePast))]
+    [NotifyDataErrorInfo]
     [ObservableProperty] private DateTimeOffset? startMDY;
     [ObservableProperty] private TimeSpan? startHM;
+
+    [CustomValidation(typeof(ChoreSettingsViewModel), nameof(DateIsNotInThePast))]
+    [NotifyDataErrorInfo]
     [ObservableProperty] private DateTimeOffset? endMDY;
     [ObservableProperty] private TimeSpan? endHM;
     [ObservableProperty] private int entryDurationDay;
@@ -36,5 +61,15 @@ public partial class ChoreSettingsViewModel : ViewModelBase
     private void CloseChoreSettings()
     {
         OnCloseSettingsRequested.Invoke();
+    }
+    
+    public static ValidationResult DateIsNotInThePast(DateTimeOffset? offset)
+    {
+        if (offset is null)
+            return ValidationResult.Success!;
+
+        return offset?.UtcDateTime > DateTime.UtcNow 
+            ? ValidationResult.Success!
+            : new ValidationResult("This can't be in the past");
     }
 }
