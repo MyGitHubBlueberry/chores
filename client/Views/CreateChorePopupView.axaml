@@ -1,0 +1,35 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="clr-namespace:client.ViewModels"
+             mc:Ignorable="d" d:DesignWidth="200" d:DesignHeight="100"
+             x:Class="client.Views.CreateChorePopupView"
+             x:DataType="vm:CreateChorePopupViewModel">
+    <Border Background="White" Margin="20" Width="250" Height="150">
+        <DockPanel>
+            <TextBlock DockPanel.Dock="Top"
+                       HorizontalAlignment="Center"
+                       Margin="10"
+                       FontWeight="Bold"
+                       FontSize="18"
+                       Text="{Binding Heading}"
+                       TextWrapping="Wrap">
+            </TextBlock>
+            <Button
+                DockPanel.Dock="Bottom"
+                HorizontalAlignment="Stretch"
+                HorizontalContentAlignment="Center"
+                VerticalAlignment="Bottom"
+                IsEnabled="{Binding CanClose}"
+                Command="{Binding OkPressedCommand}">
+                ok
+            </Button>
+            <TextBlock Text="{Binding Body}"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Stretch"
+                       TextWrapping="Wrap">
+            </TextBlock>
+        </DockPanel>
+    </Border>
+</UserControl>

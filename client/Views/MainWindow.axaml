@@ -20,5 +20,9 @@
             <Border Background="#80000000" />
             <ContentControl Content="{Binding FloatingView}" />
         </Panel>
+        <Panel IsVisible="{Binding IsPopupViewVisible}">
+            <Border Background="#80000000" />
+            <ContentControl Content="{Binding PopupView}" />
+        </Panel>
     </Panel>
 </Window>

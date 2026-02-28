@@ -6,20 +6,20 @@ namespace client.ViewModels;
 
 public partial class MyChoresViewModel : ViewModelBase
 {
-    public event Action OnCreateChoreRequested;
+    public event Action OnCreateChoreViewOpenRequested;
 
     [RelayCommand]
     private void OpenCreateChoreView()
     {
         Console.WriteLine("create chore pressed");
-        OnCreateChoreRequested.Invoke();
+        OnCreateChoreViewOpenRequested.Invoke();
     }
     
     [RelayCommand]
     private void CloseCreateChoreView()
     {
         Console.WriteLine("create chore pressed");
-        OnCreateChoreRequested.Invoke();
+        OnCreateChoreViewOpenRequested.Invoke();
     }
 
 }

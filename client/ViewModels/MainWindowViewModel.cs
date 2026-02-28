@@ -6,7 +6,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using Networking;
 
 namespace client.ViewModels;
-
+//USE PROPERTIES OR UI WILL NOT REACT
 public partial class MainWindowViewModel : ViewModelBase
 {
     private readonly Client client;
@@ -14,7 +14,9 @@ public partial class MainWindowViewModel : ViewModelBase
     private readonly MyChoresViewModel myChoresViewModel;
     [ObservableProperty] ViewModelBase currentView;
     [ObservableProperty] ViewModelBase floatingView;
+    [ObservableProperty] ViewModelBase popupView;
     [ObservableProperty] bool isFloatingViewVisible;
+    [ObservableProperty] bool isPopupViewVisible;
     public MainWindowViewModel(Client client)
     {
         this.client = client;
@@ -25,16 +27,36 @@ public partial class MainWindowViewModel : ViewModelBase
             CurrentView = authViewModel;
         authViewModel.OnLoginSuccess += () =>
             CurrentView = new HomeViewModel(myChoresViewModel);
-        myChoresViewModel.OnCreateChoreRequested += () =>
+        myChoresViewModel.OnCreateChoreViewOpenRequested += () =>
         {
             Console.WriteLine("you should see floating window now");
             var createChoreViewModel = new CreateChoreViewModel(client);
             FloatingView = createChoreViewModel;
             IsFloatingViewVisible = true;
+            createChoreViewModel.OnCreateChoreRequested += () =>
+            {
+                PopupView = createChoreViewModel.PopupViewModel;
+                IsFloatingViewVisible = false;
+                IsPopupViewVisible = true;
+            };
             createChoreViewModel.SettingsViewModel.OnCloseSettingsRequested += () =>
             {
                 IsFloatingViewVisible = false;
                 FloatingView = null;
+            };
+            createChoreViewModel.PopupViewModel.OnPopupRead += success =>
+            {
+                IsPopupViewVisible = false;
+                if (success)
+                {
+                    IsFloatingViewVisible = false;
+                    FloatingView = null;
+                    PopupView = null;
+                }
+                else
+                {
+                    IsFloatingViewVisible = true;
+                }
             };
         };
         CurrentView = connectionVm;
