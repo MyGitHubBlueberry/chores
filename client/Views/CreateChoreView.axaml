@@ -17,7 +17,8 @@
                 <Button VerticalAlignment="Bottom" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
                         Margin="10"
                         IsEnabled="{Binding
-                            Path=!SettingsViewModel.HasErrors}">
+                            Path=!SettingsViewModel.HasErrors}"
+                        Command="{Binding SendCreateChoreRequestCommand}">
                     Create
                 </Button>
             </DockPanel>
