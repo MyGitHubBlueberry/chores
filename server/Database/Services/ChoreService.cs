@@ -56,6 +56,12 @@ public class ChoreService(Context db, ChoreQueueService qServ, ChorePermissionSe
         return Result<Chore>.Success(chore);
     }
 
+    //todo: test it
+    public async Task<Result> IsChoreNameUniqueAsync(string choreName, CancellationToken token = default) =>
+        await db.Chores.AnyAsync(ch => ch.Title == choreName, token)
+            ? Result.Fail(ServiceError.Conflict, "Chore with this name already exists")
+            : Result.Success();
+    
     //todo: log it
     public async Task<Result> DeleteChoreAsync
         (int userId, int choreId, CancellationToken token = default)

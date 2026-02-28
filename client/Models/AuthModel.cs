@@ -43,9 +43,6 @@ public class AuthModel
             case OpCode.Register:
                 Console.WriteLine("client recieved reg responce");
                 break;
-            default:
-                Console.WriteLine("invalid code");
-                break;
         }
     }
 

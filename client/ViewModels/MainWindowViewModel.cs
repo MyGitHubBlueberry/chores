@@ -28,7 +28,7 @@ public partial class MainWindowViewModel : ViewModelBase
         myChoresViewModel.OnCreateChoreRequested += () =>
         {
             Console.WriteLine("you should see floating window now");
-            var createChoreViewModel = new CreateChoreViewModel();
+            var createChoreViewModel = new CreateChoreViewModel(client);
             FloatingView = createChoreViewModel;
             IsFloatingViewVisible = true;
             createChoreViewModel.SettingsViewModel.OnCloseSettingsRequested += () =>

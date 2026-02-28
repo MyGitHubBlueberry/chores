@@ -1,0 +1,46 @@
+using System;
+using System.Text.Json;
+using System.Threading.Tasks;
+using Networking;
+using Shared.Database.Models;
+using Shared.Networking;
+using Shared.Networking.Packets;
+
+namespace client.ViewModels;
+
+public class ChoreSettingsModel
+{
+    private readonly Client client;
+    public Action<Result> OnNameVerificationResponseReceived;
+    public ChoreSettingsModel(Client client)
+    {
+        this.client = client;
+        this.client.PacketRecieved += OnPacketReceived;
+    }
+
+    private void OnPacketReceived(ReadPacket packet)
+    {
+        Console.WriteLine("Chore settings recieved packet");
+        switch (packet.code)
+        {
+            case OpCode.VerifyChoreName:
+                Console.WriteLine("Started deserialization");
+                var result = JsonSerializer.Deserialize<Result>(packet.jsonData);
+                Console.WriteLine("finished deserialization");
+                Console.WriteLine("Result is null: " + (result is null));
+                if (result is null)
+                {
+                    Console.WriteLine("Server error");
+                    break;
+                }
+                OnNameVerificationResponseReceived.Invoke(result);
+                break;
+        }
+    }
+
+    public async Task IsChoreNameUnique(string name)
+    {
+        await client.SendAsync(new SendPacket<CheckChoreNameUniquenessRequest>(OpCode.VerifyChoreName,
+            new CheckChoreNameUniquenessRequest(name)));
+    }
+}

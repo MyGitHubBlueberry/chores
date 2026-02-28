@@ -46,6 +46,10 @@ public class ChoreHandler(ChoreService service) : PacketHandler
                     (context, packet, req =>
                          service.UnpauseChoreAsync
                              (context.CurrentUser.Id, req.ChoreId, token), token);
+            case OpCode.VerifyChoreName:
+                return await HandlePacketAsync<CheckChoreNameUniquenessRequest>
+                (context, packet, req =>
+                    service.IsChoreNameUniqueAsync(req.name, token), token);
             default:
                 return false;
         }
@@ -59,7 +63,8 @@ public class ChoreHandler(ChoreService service) : PacketHandler
             OpCode.UpdateChoreDetails,
             OpCode.UpdateChoreSchedule,
             OpCode.PauseChore,
-            OpCode.UnpauseChore
+            OpCode.UnpauseChore,
+            OpCode.VerifyChoreName
         ];
     }
 }

@@ -1,7 +1,11 @@
 using System;
 using System.ComponentModel.DataAnnotations;
+using System.Threading.Tasks;
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Networking;
+using Shared.Networking;
 
 namespace client.ViewModels;
 
@@ -17,18 +21,18 @@ public partial class ChoreSettingsViewModel : ViewModelBase
         new TimeSpan(EntryDurationDay, EntryDurationHour, EntryDurationMinute, 0) is var time && time == TimeSpan.Zero
             ? null
             : time;
-
-
+    
     public TimeSpan? Interval =>
         new TimeSpan(IntervalDay, IntervalHour, IntervalMinute, 0) is var time && time == TimeSpan.Zero
             ? null
             : time;
-    
-    [Required(ErrorMessage = "Chore name is required")]
-    [NotifyDataErrorInfo]
-    [ObservableProperty] private string name;
-    [ObservableProperty] private string description;
 
+    [CustomValidation(typeof(ChoreSettingsViewModel), nameof(ChoreIsUnique))]
+    [NotifyDataErrorInfo]
+    [Required(ErrorMessage = "Chore name is required")]
+    [ObservableProperty] private string choreName;
+    private Result? isChoreNameUnique = null;
+    [ObservableProperty] private string description;
     
     [CustomValidation(typeof(ChoreSettingsViewModel), nameof(DateIsNotInThePast))]
     [NotifyDataErrorInfo]
@@ -51,11 +55,22 @@ public partial class ChoreSettingsViewModel : ViewModelBase
     [ObservableProperty] private int intervalHour;
     [ObservableProperty] private int intervalMinute;
 
-    public ChoreSettingsViewModel()
+    private readonly ChoreSettingsModel model;
+
+    public ChoreSettingsViewModel(Client client)
     {
+        model = new(client);
+        model.OnNameVerificationResponseReceived += result =>
+        {
+            isChoreNameUnique = result;
+            Dispatcher.UIThread.Post(() =>
+            {
+                ValidateProperty(ChoreName, nameof(ChoreName));
+            });
+        };
         ValidateAllProperties();
     }
-    
+
     [RelayCommand]
     private void CloseChoreSettings()
     {
@@ -75,28 +90,14 @@ public partial class ChoreSettingsViewModel : ViewModelBase
     {
         var instance = (ChoreSettingsViewModel)ctx.ObjectInstance;
         if (instance.StartMDY is null)
-        {
-            Console.WriteLine("instance.StartMDY is null");
             return ValidationResult.Success!;
-        }
-
+        
         if (time is null)
-        {
-            Console.WriteLine("time is null");   
             return ValidationResult.Success!;
-        }
-        if (instance.StartDate > DateTime.UtcNow)
-        {
-            Console.WriteLine("instance.StartMDY is null");
-            return ValidationResult.Success!;
-        }
-        else
-        {
-            return new ValidationResult("Start date can't be in the past");
-        }
-        // return instance.StartDate > DateTime.UtcNow 
-        //     ? ValidationResult.Success!
-        //     : new ValidationResult("Start date can't be in the past");
+
+        return instance.StartDate > DateTime.UtcNow 
+            ? ValidationResult.Success!
+            : new ValidationResult("Start date can't be in the past");
     }
     
     public static ValidationResult EndDateIsAfterStartDate(DateTimeOffset? offset, ValidationContext ctx)
@@ -121,5 +122,25 @@ public partial class ChoreSettingsViewModel : ViewModelBase
         return instance.EndDate > instance.StartDate
             ? ValidationResult.Success!
             : new ValidationResult("End date should be after start date");
+    }
+
+    public static ValidationResult ChoreIsUnique(string? name, ValidationContext ctx)
+    {
+        if (name is null)
+            return ValidationResult.Success!;
+        var instance = (ChoreSettingsViewModel)ctx.ObjectInstance;
+
+        if (instance.isChoreNameUnique is null)
+        {
+            _ = instance.model.IsChoreNameUnique(name);
+            return ValidationResult.Success!;
+        }
+
+        var result = instance.isChoreNameUnique.IsSuccess
+            ? ValidationResult.Success!
+            : new ValidationResult(instance.isChoreNameUnique.ErrorMessage);
+        
+        instance.isChoreNameUnique = null;
+        return result;
     }
 }

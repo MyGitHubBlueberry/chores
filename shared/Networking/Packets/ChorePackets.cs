@@ -35,3 +35,5 @@ public record UpdateChoreScheduleRequest(
     TimeSpan? Duration = null,
     TimeSpan? Interval = null
 ) : Request;
+
+public record CheckChoreNameUniquenessRequest(string name) : Request;
