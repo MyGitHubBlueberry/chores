@@ -2,6 +2,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.Text;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.ComponentModel.__Internals;
 using CommunityToolkit.Mvvm.Input;
 using Networking;
 using Shared.Database.Models;
@@ -56,18 +57,18 @@ public partial class AuthViewModel : ViewModelBase
     public AuthViewModel() { }
     
     [RelayCommand]
-    public async void Login()
+    public void Login()
     {
         var request = new LoginRequest(Username, Password);
         Console.WriteLine("login");
-        await model.Login(request);
+        _ = model.Login(request);
     }
     
     [RelayCommand]
-    public async void Register()
+    public void Register()
     {
         var request = new RegisterRequest(Username, Password);
-        await model.Register(request);
+        _ = model.Register(request);
         Console.WriteLine("reg");
     }
     

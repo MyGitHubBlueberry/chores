@@ -17,12 +17,12 @@ public class AuthModel
     public AuthModel(Client client)
     {
         this.client = client;
-        client.PacketRecieved += OnPacketRecieved;
+        client.PacketRecieved += OnPacketReceived;
     }
 
-    private void OnPacketRecieved(ReadPacket packet)
+    private void OnPacketReceived(ReadPacket packet)
     {
-        Console.WriteLine("Recieved packet");
+        Console.WriteLine("Received packet");
         switch (packet.code)
         {
             case OpCode.Login:
@@ -41,7 +41,7 @@ public class AuthModel
                 }
                 break;
             case OpCode.Register:
-                Console.WriteLine("client recieved reg responce");
+                Console.WriteLine("client received reg response");
                 break;
         }
     }
@@ -50,7 +50,7 @@ public class AuthModel
     {
         if (client.IsConnected)
         {
-            await this.client.SendAsync(new SendPacket<LoginRequest>(OpCode.Login, request));
+            _ = client.SendAsync(new SendPacket<LoginRequest>(OpCode.Login, request));
             Console.WriteLine("Sent login request");
         }
     }
@@ -59,7 +59,7 @@ public class AuthModel
     {
         if (client.IsConnected)
         {
-            await this.client.SendAsync(new SendPacket<RegisterRequest>(OpCode.Register, request));
+            await client.SendAsync(new SendPacket<RegisterRequest>(OpCode.Register, request));
             Console.WriteLine("Sent reg request");
         }
     }

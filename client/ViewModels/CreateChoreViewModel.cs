@@ -42,15 +42,13 @@ public partial class CreateChoreViewModel : ViewModelBase
             ), CreateChoreCallback);
     }
 
-    public void CreateChoreCallback(Result<Chore> result)
+    private void CreateChoreCallback(Result<Chore> result)
     {
         Console.Write("Received callback: ");
         Console.WriteLine(result.IsSuccess 
             ? "chore created successfully"
             : result.ErrorMessage);
-        //close on success and show that chore was created successfully
         
-        //on fail show message and revalidate all fields
         if (result.IsSuccess)
         {
             PopupViewModel.OpenSuccess();
@@ -60,6 +58,5 @@ public partial class CreateChoreViewModel : ViewModelBase
             Dispatcher.UIThread.Post(ValidateAllProperties);
             PopupViewModel.OpenError(result.ErrorMessage);
         }
-
     }
 }
