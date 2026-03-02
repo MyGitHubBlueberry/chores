@@ -36,9 +36,9 @@ public class MyChoresModel
                 break;
             case OpCode.GetChoreNameToPrivileges:
                 Console.WriteLine("Mychoresmodel started deserialization");
-                var result = JsonSerializer.Deserialize<ICollection<ChoreNameToPrivilege>>(packet.jsonData);
+                var result = JsonSerializer.Deserialize<Result<ICollection<ChoreNameToPrivilege>>>(packet.jsonData);
                 Console.WriteLine("Mychoresmodel called callback");
-                callback?.Invoke(result);
+                callback?.Invoke(result.Value);
                 break;
         }
     }
