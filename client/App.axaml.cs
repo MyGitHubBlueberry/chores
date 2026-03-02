@@ -25,11 +25,11 @@ public partial class App : Application
         var collection = new ServiceCollection();
         collection.AddSingleton<Client>();
         collection.AddSingleton<UserSessionStore>();
-        collection.AddTransient<MainWindowViewModel>();
-        collection.AddTransient<AuthViewModel>();
-        collection.AddTransient<MyChoresViewModel>();
-        collection.AddTransient<ConnectionViewModel>();
-        collection.AddTransient<HomeViewModel>();
+        collection.AddSingleton<MainWindowViewModel>();
+        collection.AddSingleton<AuthViewModel>();
+        collection.AddSingleton<MyChoresViewModel>();
+        collection.AddSingleton<ConnectionViewModel>();
+        collection.AddSingleton<HomeViewModel>();
         Services = collection.BuildServiceProvider();
         
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)

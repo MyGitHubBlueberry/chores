@@ -29,10 +29,11 @@
                 <ListBox.ItemTemplate>
                     <DataTemplate>
                         <Panel>
-                            <TextBlock Text="{Binding Title}" VerticalAlignment="Center" Margin="10 0"/>
+                            <TextBlock Text="{Binding ChoreName}" VerticalAlignment="Center" Margin="10 0"/>
                             <DockPanel VerticalAlignment="Center"
                                        HorizontalAlignment="Right">
-                                <TextBlock VerticalAlignment="Center">Privilege</TextBlock>
+                                <TextBlock Text="{Binding Privilege}" 
+                                           VerticalAlignment="Center"/>
                                 <Button VerticalAlignment="Center" Margin="10 0">Manage</Button>
                             </DockPanel>
                         </Panel>

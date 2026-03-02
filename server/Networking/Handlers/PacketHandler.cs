@@ -11,57 +11,113 @@ public abstract class PacketHandler
 {
     public abstract OpCode[] GetHandledCodes();
 
-    public async Task<bool> HandleAsync
-        (ClientContext context, ReadPacket packet, CancellationToken token = default)
+    public async Task<bool> HandleAsync(
+        ClientContext context,
+        ReadPacket packet,
+        CancellationToken token = default)
     {
         while (!token.IsCancellationRequested)
         {
             return await HandleCodesAsync(context, packet, token);
         }
+
         return false;
     }
 
-    protected abstract Task<bool> HandleCodesAsync(ClientContext context, ReadPacket packet, CancellationToken token = default);
-
-    protected async Task<bool> HandlePacketAsync<Req, Res>
-        (ClientContext context, ReadPacket packet, Func<Req, Task<Result<Res>>> func, CancellationToken token)
-    where Req : Request
-    {
-        return await HandlePacketAsync<Req>(context, packet, async (req) => 
-        {
-            Result<Res> result = await func(req);
-            return (Result)result;
-        }, token);
-    }
-
-    protected async Task<bool> HandlePacketAsync<Req>
-        (ClientContext context, ReadPacket packet, Func<Req, Task<Result>> func, CancellationToken token)
+    protected abstract Task<bool> HandleCodesAsync(
+        ClientContext context,
+        ReadPacket packet,
+        CancellationToken token = default);
+    
+    protected async Task<bool> HandlePacketAsync<Req, Res>(
+        ClientContext context,
+        ReadPacket packet,
+        Func<Req, Task<Result<Res>>> func,
+        CancellationToken token)
         where Req : Request
     {
         Req? request;
+
         try
         {
             request = JsonSerializer.Deserialize<Req>(packet.jsonData);
         }
-        catch { return false; }
-        if (request is null) return false;
+        catch
+        {
+            return false;
+        }
 
-        SendPacket<Result> sendPacket;
-        Console.WriteLine("before func");
-        Result result;
+        if (request is null)
+            return false;
+
+        Console.WriteLine("before func (generic)");
+
+        Result<Res> result;
+
         try
         {
-            result = await func.Invoke(request);
+            result = await func(request);
         }
         catch (Exception e)
         {
             Console.WriteLine(e);
             throw;
         }
-        Console.WriteLine("after func");
-        sendPacket = new(packet.code, result);
-        Console.WriteLine("Sent packet back");
+
+        Console.WriteLine("after func (generic) with code: " + packet.code);
+
+        var sendPacket = new SendPacket<Result<Res>>(packet.code, result);
+
+        Console.WriteLine("Sent generic packet back");
+
         await PacketProtocol.SendPacketAsync(context.Stream, sendPacket);
+
+        return true;
+    }
+    
+    protected async Task<bool> HandlePacketAsync<Req>(
+        ClientContext context,
+        ReadPacket packet,
+        Func<Req, Task<Result>> func,
+        CancellationToken token)
+        where Req : Request
+    {
+        Req? request;
+
+        try
+        {
+            request = JsonSerializer.Deserialize<Req>(packet.jsonData);
+        }
+        catch
+        {
+            return false;
+        }
+
+        if (request is null)
+            return false;
+
+        Console.WriteLine("before func (non-generic)");
+
+        Result result;
+
+        try
+        {
+            result = await func(request);
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine(e);
+            throw;
+        }
+
+        Console.WriteLine("after func (non-generic)");
+
+        var sendPacket = new SendPacket<Result>(packet.code, result);
+
+        Console.WriteLine("Sent non-generic packet back");
+
+        await PacketProtocol.SendPacketAsync(context.Stream, sendPacket);
+
         return true;
     }
 }

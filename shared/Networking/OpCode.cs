@@ -15,6 +15,7 @@ public enum OpCode : byte
     GetOwnedChores,
     GetMemberships,
     GetAssociatedLogs,
+    GetChoreNameToPrivileges,
 
     CreateChore,
     DeleteChore,

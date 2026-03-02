@@ -33,6 +33,8 @@ public class AuthModel
                 if (result.IsSuccess)
                 {
                     Console.WriteLine("Client logged in successfully");
+                    Console.WriteLine("user is null: " + (result.Value is null));
+                    Console.WriteLine("Username is: " + result.Value?.Username);
                     OnLoginSuccess.Invoke(result.Value);
                 }
                 else

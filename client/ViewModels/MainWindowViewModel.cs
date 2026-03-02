@@ -32,7 +32,10 @@ public partial class MainWindowViewModel : ViewModelBase
         this.connectionViewModel.OnConnectionSuccess += () =>
             CurrentView = this.authViewModel;
         this.authViewModel.OnLoginSuccess += () =>
+        {
+            this.myChoresViewModel.LoadChores();
             CurrentView = homeViewModel;
+        };
         myChoresViewModel.OnCreateChoreViewOpenRequested += () =>
         {
             Console.WriteLine("you should see floating window now");

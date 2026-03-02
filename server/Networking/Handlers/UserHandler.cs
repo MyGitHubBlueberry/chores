@@ -52,7 +52,10 @@ public class UserHandler(UserService service) : PacketHandler
                         if (result.IsSuccess) context.CurrentUser = null;
                         return result;
                     }, token);
-
+            case OpCode.GetChoreNameToPrivileges:
+                return await HandlePacketAsync<GetChoreNameToPrivilege, ICollection<ChoreNameToPrivilege>>
+                    (context, packet, (req) =>
+                        service.GetChoreMemberNamesWithRolesAsync(req.UserId), token);
             default:
                 return false;
         }
@@ -66,7 +69,8 @@ public class UserHandler(UserService service) : PacketHandler
             OpCode.GetOwnedChores,
             OpCode.GetUserByName,
             OpCode.GetUserById,
-            OpCode.DeleteUser
+            OpCode.DeleteUser,
+            OpCode.GetChoreNameToPrivileges,
         ];
     }
 }

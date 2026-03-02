@@ -97,6 +97,24 @@ public class UserService(Context db)
                 .Where(cm => cm.UserId == id)
                 .ToListAsync(token));
     }
+    
+    public async Task<Result<ICollection<ChoreNameToPrivilege>>> GetChoreMemberNamesWithRolesAsync
+        (int id, CancellationToken token = default)
+    {
+        if (!await db.Users.AnyAsync(u => u.Id == id))
+            return Result<ICollection<ChoreNameToPrivilege>>.NotFound();
+        
+        return Result<ICollection<ChoreNameToPrivilege>>
+            .Success(await db.ChoreMembers
+                .Join(db.Chores,
+                    choreMember => choreMember.ChoreId,
+                    chore => chore.Id,
+                    (cm, c) => new { cm, c })
+                    .Join(db.Users,
+                        temp => temp.cm.UserId,
+                        user => user.Id,
+                        (temp, user) => new ChoreNameToPrivilege(temp.c.Title,temp.c.OwnerId == user.Id ? "Owner" : temp.cm.IsAdmin ? "Admin" : "Member")).ToArrayAsync(token));
+    }
 
     public async Task<Result<ICollection<ChoreLog>>> GetAssociatedLogsByIdAsync
         (int id, CancellationToken token = default)
