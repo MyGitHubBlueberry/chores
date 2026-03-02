@@ -106,6 +106,7 @@ public class UserService(Context db)
         
         return Result<ICollection<ChoreNameToPrivilege>>
             .Success(await db.ChoreMembers
+                .Where(cm => cm.UserId == id)
                 .Join(db.Chores,
                     choreMember => choreMember.ChoreId,
                     chore => chore.Id,
@@ -113,7 +114,7 @@ public class UserService(Context db)
                     .Join(db.Users,
                         temp => temp.cm.UserId,
                         user => user.Id,
-                        (temp, user) => new ChoreNameToPrivilege(temp.c.Title,temp.c.OwnerId == user.Id ? "Owner" : temp.cm.IsAdmin ? "Admin" : "Member")).ToArrayAsync(token));
+                        (temp, user) => new ChoreNameToPrivilege(temp.c.Title,(temp.c.OwnerId == user.Id) ? "Owner" : (temp.cm.IsAdmin ? "Admin" : "Member"))).ToArrayAsync(token));
     }
 
     public async Task<Result<ICollection<ChoreLog>>> GetAssociatedLogsByIdAsync

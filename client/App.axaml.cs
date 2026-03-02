@@ -23,11 +23,11 @@ public partial class App : Application
     public override void OnFrameworkInitializationCompleted()
     {
         var collection = new ServiceCollection();
-        collection.AddSingleton<Client>();
-        collection.AddSingleton<UserSessionStore>();
+        collection.AddScoped<Client>();
+        collection.AddScoped<UserSessionStore>();
         collection.AddSingleton<MainWindowViewModel>();
         collection.AddSingleton<AuthViewModel>();
-        collection.AddSingleton<MyChoresViewModel>();
+        collection.AddScoped<MyChoresViewModel>();
         collection.AddSingleton<ConnectionViewModel>();
         collection.AddSingleton<HomeViewModel>();
         Services = collection.BuildServiceProvider();

@@ -15,7 +15,7 @@ public class ChoreSettingsModel
     public ChoreSettingsModel(Client client)
     {
         this.client = client;
-        this.client.PacketRecieved += OnPacketReceived;
+        this.client.PacketReceived += OnPacketReceived;
     }
 
     private void OnPacketReceived(ReadPacket packet)

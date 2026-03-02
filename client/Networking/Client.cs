@@ -13,7 +13,7 @@ using Shared.Networking.Packets.Debug;
 
 public class Client : IDisposable
 {
-    public Action<ReadPacket> PacketRecieved;
+    public Action<ReadPacket> PacketReceived;
     public bool IsConnected { get => sock?.Connected ?? false; }
     public CancellationToken Token { get => cts.Token; }
 
@@ -88,7 +88,7 @@ public class Client : IDisposable
     bool HandleResponces(ReadPacket packet)
     {
         Console.WriteLine("invoked packet recieved");
-        PacketRecieved.Invoke(packet);
+        PacketReceived.Invoke(packet);
         switch (packet.code)
         {
             case OpCode.Disconnect:

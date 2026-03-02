@@ -17,7 +17,7 @@ public class AuthModel
     public AuthModel(Client client)
     {
         this.client = client;
-        client.PacketRecieved += OnPacketReceived;
+        client.PacketReceived += OnPacketReceived;
     }
 
     private void OnPacketReceived(ReadPacket packet)

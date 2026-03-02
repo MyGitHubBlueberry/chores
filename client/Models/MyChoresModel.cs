@@ -19,7 +19,7 @@ public class MyChoresModel
         this.callback = callback;
         this.client = client;
         this.session = session;
-        client.PacketRecieved += HandlePackets;
+        client.PacketReceived += HandlePackets;
     }
 
     private void HandlePackets(ReadPacket packet)

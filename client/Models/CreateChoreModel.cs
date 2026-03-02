@@ -17,7 +17,7 @@ public class CreateChoreModel
     public CreateChoreModel(Client client)
     {
         this.client = client;
-        client.PacketRecieved += HandlePackets;
+        client.PacketReceived += HandlePackets;
     }
 
     private void HandlePackets(ReadPacket packet)
