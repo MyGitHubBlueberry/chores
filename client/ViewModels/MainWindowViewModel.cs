@@ -12,21 +12,27 @@ public partial class MainWindowViewModel : ViewModelBase
     private readonly Client client;
     private readonly AuthViewModel authViewModel;
     private readonly MyChoresViewModel myChoresViewModel;
+    private readonly ConnectionViewModel connectionViewModel;
     [ObservableProperty] ViewModelBase currentView;
     [ObservableProperty] ViewModelBase floatingView;
     [ObservableProperty] ViewModelBase popupView;
     [ObservableProperty] bool isFloatingViewVisible;
     [ObservableProperty] bool isPopupViewVisible;
-    public MainWindowViewModel(Client client)
+    public MainWindowViewModel(
+        Client client, 
+        ConnectionViewModel connectionViewModel, 
+        AuthViewModel authViewModel,
+        MyChoresViewModel myChoresViewModel,
+        HomeViewModel homeViewModel)
     {
         this.client = client;
-        var connectionVm = new ConnectionViewModel(client);
-        authViewModel= new AuthViewModel(client);
-        myChoresViewModel = new MyChoresViewModel();
-        connectionVm.OnConnectionSuccess += () =>
-            CurrentView = authViewModel;
-        authViewModel.OnLoginSuccess += () =>
-            CurrentView = new HomeViewModel(myChoresViewModel);
+        this.connectionViewModel = connectionViewModel;
+        this.authViewModel= authViewModel;
+        this.myChoresViewModel = myChoresViewModel;
+        this.connectionViewModel.OnConnectionSuccess += () =>
+            CurrentView = this.authViewModel;
+        this.authViewModel.OnLoginSuccess += () =>
+            CurrentView = homeViewModel;
         myChoresViewModel.OnCreateChoreViewOpenRequested += () =>
         {
             Console.WriteLine("you should see floating window now");
@@ -59,7 +65,7 @@ public partial class MainWindowViewModel : ViewModelBase
                 }
             };
         };
-        CurrentView = connectionVm;
+        CurrentView = this.connectionViewModel;
     }
     
     public MainWindowViewModel() {} //for previewer

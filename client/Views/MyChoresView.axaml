@@ -2,7 +2,6 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             xmlns:views="clr-namespace:client.Views"
              xmlns:vm="using:client.ViewModels"
              mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="450"
              x:Class="client.Views.MyChoresView"
@@ -26,22 +25,20 @@
                 Command="{Binding OpenCreateChoreViewCommand}"
                 >Create New Chore</Button>
         <ScrollViewer DockPanel.Dock="Top">
-            <StackPanel>
-                <views:ChoreEntryView></views:ChoreEntryView>
-                <views:ChoreEntryView></views:ChoreEntryView>
-                <views:ChoreEntryView></views:ChoreEntryView>
-                <views:ChoreEntryView></views:ChoreEntryView>
-                <views:ChoreEntryView></views:ChoreEntryView>
-                <views:ChoreEntryView></views:ChoreEntryView>
-                <views:ChoreEntryView></views:ChoreEntryView>
-                <views:ChoreEntryView></views:ChoreEntryView>
-                <views:ChoreEntryView></views:ChoreEntryView>
-                <views:ChoreEntryView></views:ChoreEntryView>
-                <views:ChoreEntryView></views:ChoreEntryView>
-                <views:ChoreEntryView></views:ChoreEntryView>
-                <views:ChoreEntryView></views:ChoreEntryView>
-                <views:ChoreEntryView></views:ChoreEntryView>
-            </StackPanel>
+            <ListBox ItemsSource="{Binding Chores}">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <Panel>
+                            <TextBlock Text="{Binding Title}" VerticalAlignment="Center" Margin="10 0"/>
+                            <DockPanel VerticalAlignment="Center"
+                                       HorizontalAlignment="Right">
+                                <TextBlock VerticalAlignment="Center">Privilege</TextBlock>
+                                <Button VerticalAlignment="Center" Margin="10 0">Manage</Button>
+                            </DockPanel>
+                        </Panel>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
         </ScrollViewer>
     </DockPanel>
 </UserControl>

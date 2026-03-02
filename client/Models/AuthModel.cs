@@ -12,7 +12,7 @@ namespace client.ViewModels;
 public class AuthModel
 {
     private readonly Client client;
-    public event Action OnLoginSuccess;
+    public event Action<User> OnLoginSuccess;
 
     public AuthModel(Client client)
     {
@@ -33,7 +33,7 @@ public class AuthModel
                 if (result.IsSuccess)
                 {
                     Console.WriteLine("Client logged in successfully");
-                    OnLoginSuccess.Invoke();
+                    OnLoginSuccess.Invoke(result.Value);
                 }
                 else
                 {
@@ -50,7 +50,7 @@ public class AuthModel
     {
         if (client.IsConnected)
         {
-            _ = client.SendAsync(new SendPacket<LoginRequest>(OpCode.Login, request));
+            await client.SendAsync(new SendPacket<LoginRequest>(OpCode.Login, request));
             Console.WriteLine("Sent login request");
         }
     }

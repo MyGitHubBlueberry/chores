@@ -13,6 +13,7 @@ namespace client.ViewModels;
 public partial class AuthViewModel : ViewModelBase
 {
     public event Action OnLoginSuccess;
+    private readonly UserSessionStore session;
     private string username;
     private string password;
     private string confirmedPassword;
@@ -48,10 +49,15 @@ public partial class AuthViewModel : ViewModelBase
 
     private AuthModel model;
 
-    public AuthViewModel(Client client)
+    public AuthViewModel(Client client, UserSessionStore session)
     {
+        this.session = session;
         model = new(client);
-        model.OnLoginSuccess += () => OnLoginSuccess?.Invoke();
+        model.OnLoginSuccess += user =>
+        {
+            session.Login(user);
+            OnLoginSuccess?.Invoke();
+        };
     }
 
     public AuthViewModel() { }
