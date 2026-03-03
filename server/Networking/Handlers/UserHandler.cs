@@ -53,7 +53,7 @@ public class UserHandler(UserService service) : PacketHandler
                         return result;
                     }, token);
             case OpCode.GetChoreNameToPrivileges:
-                return await HandlePacketAsync<GetChoreNameToPrivilege, ICollection<ChoreNameToPrivilege>>
+                return await HandlePacketAsync<GetChoreNameToPrivilege, ICollection<ChoreMemberData>>
                     (context, packet, (req) =>
                         service.GetChoreMemberNamesWithRolesAsync(req.UserId), token);
             default:

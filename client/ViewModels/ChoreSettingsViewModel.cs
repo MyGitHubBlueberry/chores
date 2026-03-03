@@ -9,7 +9,7 @@ using Shared.Networking;
 
 namespace client.ViewModels;
 
-public partial class ChoreSettingsViewModel : ViewModelBase
+public partial class ChoreSettingsViewModel : ViewModelBase 
 {
     public event Action OnCloseSettingsRequested;
 

@@ -33,6 +33,7 @@ public partial class App : Application
         collection.AddSingleton<CreateChoreViewModel>();
         collection.AddSingleton<ChoreSettingsViewModel>();
         collection.AddSingleton<CreateChorePopupViewModel>();
+        collection.AddTransient<ChoreManagementViewModel>();
         Services = collection.BuildServiceProvider();
         
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)

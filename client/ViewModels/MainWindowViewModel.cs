@@ -43,34 +43,49 @@ public partial class MainWindowViewModel : ViewModelBase
             var createChoreViewModel = App.Current.Services?.GetService<CreateChoreViewModel>();
             FloatingView = createChoreViewModel;
             IsFloatingViewVisible = true;
-            createChoreViewModel.OnCreateChoreRequested += () =>
-            {
-                PopupView = createChoreViewModel.PopupViewModel;
-                IsFloatingViewVisible = false;
-                IsPopupViewVisible = true;
-            };
-            createChoreViewModel.SettingsViewModel.OnCloseSettingsRequested += () =>
-            {
-                IsFloatingViewVisible = false;
-                FloatingView = null;
-            };
-            createChoreViewModel.PopupViewModel.OnPopupRead += success =>
-            {
-                IsPopupViewVisible = false;
-                if (success)
-                {
-                    IsFloatingViewVisible = false;
-                    FloatingView = null;
-                    PopupView = null;
-                }
-                else
-                {
-                    IsFloatingViewVisible = true;
-                }
-            };
+            createChoreViewModel.OnCreateChoreRequested += () => OpenPopup(createChoreViewModel);
+            createChoreViewModel.SettingsViewModel.OnCloseSettingsRequested += CloseAndResetFloatingView;
+            createChoreViewModel.PopupViewModel.OnPopupRead += OnPopupRead;
+        };
+        myChoresViewModel.OnChoreManagementViewOpenRequested += id =>
+        {
+            var managementView = App.Current.Services?.GetService<ChoreManagementViewModel>();
+            managementView.Initialize(id);
+            FloatingView = managementView;
+            IsFloatingViewVisible = true;
+            managementView.ChoreSettingsViewModel.OnCloseSettingsRequested += CloseAndResetFloatingView;
         };
         CurrentView = this.connectionViewModel;
     }
-    
+
+    private void OpenPopup(CreateChoreViewModel createChoreViewModel)
+    {
+        PopupView = createChoreViewModel.PopupViewModel;
+        IsFloatingViewVisible = false;
+        IsPopupViewVisible = true;
+    }
+
+    private void CloseAndResetFloatingView()
+    {
+        IsFloatingViewVisible = false;
+        FloatingView = null;
+    }
+
+    private void OnPopupRead(bool success)
+    {
+        IsPopupViewVisible = false;
+        if (success)
+        {
+            IsFloatingViewVisible = false;
+            FloatingView = null;
+            PopupView = null;
+        }
+        else
+        {
+            IsFloatingViewVisible = true;
+        }
+    }
+
+
     public MainWindowViewModel() {} //for previewer
 }

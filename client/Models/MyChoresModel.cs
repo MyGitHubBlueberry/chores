@@ -11,10 +11,10 @@ namespace client.ViewModels;
 public class MyChoresModel
 {
     private readonly Client client;
-    private readonly Action<ICollection<ChoreNameToPrivilege>> callback;
+    private readonly Action<ICollection<ChoreMemberData>> callback;
     private UserSessionStore session;
 
-    public MyChoresModel(Client client, UserSessionStore session, Action<ICollection<ChoreNameToPrivilege>> callback)
+    public MyChoresModel(Client client, UserSessionStore session, Action<ICollection<ChoreMemberData>> callback)
     {
         this.callback = callback;
         this.client = client;
@@ -32,7 +32,7 @@ public class MyChoresModel
                 _ = GetChoresWithPrivilegesAsync(new GetChoreNameToPrivilege(session.User.Id));
                 break;
             case OpCode.GetChoreNameToPrivileges:
-                var result = JsonSerializer.Deserialize<Result<ICollection<ChoreNameToPrivilege>>>(packet.jsonData);
+                var result = JsonSerializer.Deserialize<Result<ICollection<ChoreMemberData>>>(packet.jsonData);
                 callback?.Invoke(result.Value);
                 break;
         }

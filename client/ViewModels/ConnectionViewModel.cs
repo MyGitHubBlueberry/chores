@@ -32,7 +32,7 @@ public partial class ConnectionViewModel : ViewModelBase
 
         try
         {
-            await client.ConnectAsync(ipAddress, Port, 5);
+            await client.ConnectAsync(IpAddress, Port, 5);
             
             if (client.IsConnected)
             {

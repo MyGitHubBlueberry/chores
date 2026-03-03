@@ -34,7 +34,9 @@
                                        HorizontalAlignment="Right">
                                 <TextBlock Text="{Binding Privilege}" 
                                            VerticalAlignment="Center"/>
-                                <Button VerticalAlignment="Center" Margin="10 0">Manage</Button>
+                                <Button VerticalAlignment="Center" Margin="10 0" 
+                                        Command="{Binding $parent[UserControl].((vm:MyChoresViewModel)DataContext).OpenChoreManagementViewCommand}"
+                                        CommandParameter="{Binding ChoreId}">Manage</Button>
                             </DockPanel>
                         </Panel>
                     </DataTemplate>

@@ -3,12 +3,11 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:views="clr-namespace:client.Views"
-             mc:Ignorable="d" d:DesignWidth="300" d:DesignHeight="450"
+             xmlns:vm="clr-namespace:client.ViewModels"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="700"
              x:Class="client.Views.ChoreManagementView"
-             Width="300"
-             Height="450"
-             MaxHeight="450">
-    <ScrollViewer>
+             x:DataType="vm:ChoreManagementViewModel">
+    <ScrollViewer Background="White" Margin="20" Width="800">
         <DockPanel>
             <views:ChoreSettingsView DockPanel.Dock="Top"></views:ChoreSettingsView>
             <StackPanel VerticalAlignment="Bottom" DockPanel.Dock="Bottom">
@@ -33,7 +32,8 @@
                     </Button>
                     <Button HorizontalAlignment="Stretch"
                             HorizontalContentAlignment="Center"
-                            Margin="5 0 0 0">
+                            Margin="5 0 0 0"
+                            Command="{Binding DeleteCommand}">
                         Delete
                     </Button>
                 </UniformGrid>
