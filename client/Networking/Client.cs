@@ -87,16 +87,13 @@ public class Client : IDisposable
 
     bool HandleResponces(ReadPacket packet)
     {
-        Console.WriteLine("invoked packet recieved");
+        Console.WriteLine("Received packet. Packet code is: " + packet.code);
         PacketReceived.Invoke(packet);
         switch (packet.code)
         {
             case OpCode.Disconnect:
                 Console.WriteLine("Disconnected");
                 return false;
-            default:
-                Console.WriteLine("Not implemented");
-                break;
         }
         return true;
     }

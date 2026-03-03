@@ -23,13 +23,16 @@ public partial class App : Application
     public override void OnFrameworkInitializationCompleted()
     {
         var collection = new ServiceCollection();
-        collection.AddScoped<Client>();
-        collection.AddScoped<UserSessionStore>();
+        collection.AddSingleton<Client>();
+        collection.AddSingleton<UserSessionStore>();
         collection.AddSingleton<MainWindowViewModel>();
         collection.AddSingleton<AuthViewModel>();
-        collection.AddScoped<MyChoresViewModel>();
+        collection.AddSingleton<MyChoresViewModel>();
         collection.AddSingleton<ConnectionViewModel>();
         collection.AddSingleton<HomeViewModel>();
+        collection.AddSingleton<CreateChoreViewModel>();
+        collection.AddSingleton<ChoreSettingsViewModel>();
+        collection.AddSingleton<CreateChorePopupViewModel>();
         Services = collection.BuildServiceProvider();
         
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)

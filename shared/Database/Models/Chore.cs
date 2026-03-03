@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace Shared.Database.Models;
 
 using System.ComponentModel.DataAnnotations;
@@ -26,7 +28,7 @@ public class Chore
     public TimeSpan Duration { get; set; } = TimeSpan.FromDays(1);
     public TimeSpan Interval { get; set; } = TimeSpan.Zero;
 
-    public ICollection<ChoreMember> Members { get; set; } = new List<ChoreMember>();
-    public ICollection<ChoreQueue> QueueItems { get; set; } = new List<ChoreQueue>();
-    public ICollection<ChoreLog> Logs { get; set; } = new List<ChoreLog>();
+    [JsonIgnore] public ICollection<ChoreMember> Members { get; set; } = new List<ChoreMember>();
+    [JsonIgnore] public ICollection<ChoreQueue> QueueItems { get; set; } = new List<ChoreQueue>();
+    [JsonIgnore] public ICollection<ChoreLog> Logs { get; set; } = new List<ChoreLog>();
 }

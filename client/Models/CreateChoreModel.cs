@@ -22,14 +22,11 @@ public class CreateChoreModel
 
     private void HandlePackets(ReadPacket packet)
     {
-        Console.WriteLine("create chore received packet. Packet code is: " + packet.code);
         switch (packet.code)
         {
             case OpCode.CreateChore:
                 var result = JsonSerializer.Deserialize<Result<Chore>>(packet.jsonData);
-                Console.WriteLine("about to invoke callback");
                 createChoreCallback?.Invoke(result);
-                Console.WriteLine("callback invoked");
                 break;
         }
     }

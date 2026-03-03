@@ -22,19 +22,12 @@ public class AuthModel
 
     private void OnPacketReceived(ReadPacket packet)
     {
-        Console.WriteLine("Received packet");
         switch (packet.code)
         {
             case OpCode.Login:
-                Console.WriteLine("Started deserialization");
                 Result<User>? result = JsonSerializer.Deserialize<Result<User>>(packet.jsonData);
-                Console.WriteLine("finished deserialization");
-                Console.WriteLine("Result is null: " + (result is null));
                 if (result.IsSuccess)
                 {
-                    Console.WriteLine("Client logged in successfully");
-                    Console.WriteLine("user is null: " + (result.Value is null));
-                    Console.WriteLine("Username is: " + result.Value?.Username);
                     OnLoginSuccess.Invoke(result.Value);
                 }
                 else
@@ -53,7 +46,6 @@ public class AuthModel
         if (client.IsConnected)
         {
             await client.SendAsync(new SendPacket<LoginRequest>(OpCode.Login, request));
-            Console.WriteLine("Sent login request");
         }
     }
 
@@ -62,7 +54,6 @@ public class AuthModel
         if (client.IsConnected)
         {
             await client.SendAsync(new SendPacket<RegisterRequest>(OpCode.Register, request));
-            Console.WriteLine("Sent reg request");
         }
     }
 }

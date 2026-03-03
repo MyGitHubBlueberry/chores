@@ -17,8 +17,17 @@ public class PacketProtocol
     {
         Debug.Assert(stream is not null && packet is not null);
         Debug.Assert(stream.CanWrite);
-
-        string json = JsonSerializer.Serialize(packet.data);
+        string json;
+        try
+        {
+            json = JsonSerializer.Serialize(packet.data);
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine("error in serialization: " + e.Message);
+            throw;
+        }
+        
         byte[] payload = Encoding.UTF8.GetBytes(json);
 
         int length = payload.Length + OP_CODE_LENGTH;

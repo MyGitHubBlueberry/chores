@@ -2,6 +2,7 @@ using System;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Extensions.DependencyInjection;
 using Networking;
 using Shared.Database.Models;
 using Shared.Networking;
@@ -14,23 +15,23 @@ public partial class CreateChoreViewModel : ViewModelBase
     public Action OnCreateChoreRequested;
     
     [ObservableProperty]
-    private ChoreSettingsViewModel settingsViewModel;
+    private ChoreSettingsViewModel? settingsViewModel;
     [ObservableProperty]
-    private CreateChorePopupViewModel popupViewModel;
+    private CreateChorePopupViewModel? popupViewModel;
     private CreateChoreModel model;
     
     public CreateChoreViewModel(Client client)
     {
         model = new(client);
-        SettingsViewModel = new ChoreSettingsViewModel(client);
-        PopupViewModel = new CreateChorePopupViewModel();
+        SettingsViewModel = App.Current.Services?.GetService<ChoreSettingsViewModel>();
+        PopupViewModel = App.Current.Services?.GetService<CreateChorePopupViewModel>();
     }
 
     [RelayCommand]
     private void SendCreateChoreRequest()
     {
         OnCreateChoreRequested?.Invoke();
-        PopupViewModel.OpenLoading();
+        PopupViewModel?.OpenLoading();
         _ = model.CreateChoreAsync(new CreateChoreRequest(
             SettingsViewModel.ChoreName,
             SettingsViewModel.Description, 
@@ -49,14 +50,17 @@ public partial class CreateChoreViewModel : ViewModelBase
             ? "chore created successfully"
             : result.ErrorMessage);
         
-        if (result.IsSuccess)
+        Dispatcher.UIThread.Post(() =>
         {
-            PopupViewModel.OpenSuccess();
-        }
-        else
-        {
-            Dispatcher.UIThread.Post(ValidateAllProperties);
-            PopupViewModel.OpenError(result.ErrorMessage);
-        }
+            if (result.IsSuccess)
+            {
+                PopupViewModel.OpenSuccess();
+            }
+            else
+            {
+                ValidateAllProperties();
+                PopupViewModel.OpenError(result.ErrorMessage);
+            }
+        });
     }
 }

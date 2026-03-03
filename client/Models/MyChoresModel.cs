@@ -24,20 +24,15 @@ public class MyChoresModel
 
     private void HandlePackets(ReadPacket packet)
     {
-        Console.WriteLine("MyChoresModel received packet. Packet code is: " + packet.code);
         switch (packet.code)
         {
             case OpCode.CreateChore:
             case OpCode.DeleteChore:
             case OpCode.UpdateChoreDetails:
-                Console.WriteLine("Mychoresmodel requests data update");
                 _ = GetChoresWithPrivilegesAsync(new GetChoreNameToPrivilege(session.User.Id));
-                Console.WriteLine("Mychoresmodel requested data update");
                 break;
             case OpCode.GetChoreNameToPrivileges:
-                Console.WriteLine("Mychoresmodel started deserialization");
                 var result = JsonSerializer.Deserialize<Result<ICollection<ChoreNameToPrivilege>>>(packet.jsonData);
-                Console.WriteLine("Mychoresmodel called callback");
                 callback?.Invoke(result.Value);
                 break;
         }

@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Metadata;
 using client.Views;
 using CommunityToolkit.Mvvm.ComponentModel;
+using Microsoft.Extensions.DependencyInjection;
 using Networking;
 
 namespace client.ViewModels;
@@ -39,7 +40,7 @@ public partial class MainWindowViewModel : ViewModelBase
         myChoresViewModel.OnCreateChoreViewOpenRequested += () =>
         {
             Console.WriteLine("you should see floating window now");
-            var createChoreViewModel = new CreateChoreViewModel(client);
+            var createChoreViewModel = App.Current.Services?.GetService<CreateChoreViewModel>();
             FloatingView = createChoreViewModel;
             IsFloatingViewVisible = true;
             createChoreViewModel.OnCreateChoreRequested += () =>

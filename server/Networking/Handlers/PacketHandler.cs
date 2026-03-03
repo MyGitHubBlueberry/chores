@@ -44,6 +44,7 @@ public abstract class PacketHandler
         }
         catch
         {
+            Console.WriteLine("Failed to deserialize packet with code " + packet.code);
             return false;
         }
 
@@ -90,6 +91,7 @@ public abstract class PacketHandler
         }
         catch
         {
+            Console.WriteLine("Failed to deserialize packet with code " + packet.code);
             return false;
         }
 
