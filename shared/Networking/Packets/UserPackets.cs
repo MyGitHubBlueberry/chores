@@ -6,6 +6,4 @@ public record DeleteUserRequest() : Request;
 public record GetOwnedChoresByIdRequest(int UserId) : Request;
 public record GetMembershipsByIdRequest(int UserId) : Request;
 public record GetLogsByUserIdRequest(int UserId) : Request;
-
-public record ChoreMemberData(int ChoreId, string ChoreName, string Privilege);
 public record GetChoreNameToPrivilege(int UserId) : Request;

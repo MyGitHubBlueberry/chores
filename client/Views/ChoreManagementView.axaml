@@ -9,7 +9,9 @@
              x:DataType="vm:ChoreManagementViewModel">
     <ScrollViewer Background="White" Margin="20" Width="800">
         <DockPanel>
-            <views:ChoreSettingsView DockPanel.Dock="Top"></views:ChoreSettingsView>
+            <views:ChoreSettingsView DockPanel.Dock="Top"
+                DataContext="{Binding ChoreSettingsViewModel}">
+            </views:ChoreSettingsView>
             <StackPanel VerticalAlignment="Bottom" DockPanel.Dock="Bottom">
                 <UniformGrid Margin="10" Rows="1">
                     <Button HorizontalAlignment="Stretch"

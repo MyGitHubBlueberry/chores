@@ -2,6 +2,7 @@ using System;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Networking;
+using Shared.Database.Models;
 using Shared.Networking;
 using Shared.Networking.Packets;
 
@@ -13,10 +14,10 @@ public class ChoreManagementModel
     private readonly int choreId;
     private Action<Result> deleteCallback;
     
-    public ChoreManagementModel(Client client, int choreId)
+    public ChoreManagementModel(Client client, ChoreDto chore)
     {
         this.client = client;
-        this.choreId = choreId;
+        this.choreId = chore.ChoreId;
         this.client.PacketReceived += HandlePackets;
     }
 

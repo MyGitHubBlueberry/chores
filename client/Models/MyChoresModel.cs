@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Networking;
+using Shared.Database.Models;
 using Shared.Networking;
 using Shared.Networking.Packets;
 
@@ -11,10 +12,10 @@ namespace client.ViewModels;
 public class MyChoresModel
 {
     private readonly Client client;
-    private readonly Action<ICollection<ChoreMemberData>> callback;
+    private readonly Action<ICollection<ChoreDto>> callback;
     private UserSessionStore session;
 
-    public MyChoresModel(Client client, UserSessionStore session, Action<ICollection<ChoreMemberData>> callback)
+    public MyChoresModel(Client client, UserSessionStore session, Action<ICollection<ChoreDto>> callback)
     {
         this.callback = callback;
         this.client = client;
@@ -32,7 +33,7 @@ public class MyChoresModel
                 _ = GetChoresWithPrivilegesAsync(new GetChoreNameToPrivilege(session.User.Id));
                 break;
             case OpCode.GetChoreNameToPrivileges:
-                var result = JsonSerializer.Deserialize<Result<ICollection<ChoreMemberData>>>(packet.jsonData);
+                var result = JsonSerializer.Deserialize<Result<ICollection<ChoreDto>>>(packet.jsonData);
                 callback?.Invoke(result.Value);
                 break;
         }

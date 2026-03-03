@@ -12,6 +12,7 @@ namespace client.ViewModels;
 public partial class ChoreSettingsViewModel : ViewModelBase 
 {
     public event Action OnCloseSettingsRequested;
+    public string? PreviousChoreName = null;
 
     public DateTime? StartDate => StartMDY?.Date + StartHM;
 
@@ -128,7 +129,11 @@ public partial class ChoreSettingsViewModel : ViewModelBase
     {
         if (name is null)
             return ValidationResult.Success!;
+        
         var instance = (ChoreSettingsViewModel)ctx.ObjectInstance;
+        
+        if (instance.PreviousChoreName is not null && name == instance.PreviousChoreName)
+            return ValidationResult.Success!;
 
         if (instance.isChoreNameUnique is null)
         {

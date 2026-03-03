@@ -98,26 +98,35 @@ public class UserService(Context db)
                 .ToListAsync(token));
     }
     
-    public async Task<Result<ICollection<ChoreMemberData>>> GetChoreMemberNamesWithRolesAsync
+    public async Task<Result<ICollection<ChoreDto>>> GetChoreMemberNamesWithRolesAsync
         (int id, CancellationToken token = default)
     {
         if (!await db.Users.AnyAsync(u => u.Id == id))
-            return Result<ICollection<ChoreMemberData>>.NotFound();
-        
-        return Result<ICollection<ChoreMemberData>>
+            return Result<ICollection<ChoreDto>>.NotFound();
+
+        return Result<ICollection<ChoreDto>>
             .Success(await db.ChoreMembers
                 .Where(cm => cm.UserId == id)
                 .Join(db.Chores,
                     choreMember => choreMember.ChoreId,
                     chore => chore.Id,
                     (cm, c) => new { cm, c })
-                    .Join(db.Users,
-                        temp => temp.cm.UserId,
-                        user => user.Id,
-                        (temp, user) => new ChoreMemberData(
-                            temp.c.Id,
-                            temp.c.Title,
-                            (temp.c.OwnerId == user.Id) ? "Owner" : (temp.cm.IsAdmin ? "Admin" : "Member"))).ToArrayAsync(token));
+                .Join(db.Users,
+                    temp => temp.cm.UserId,
+                    user => user.Id,
+                    (temp, user) => new ChoreDto
+                    {
+                        Title = temp.c.Title,
+                        ChoreId = temp.c.Id,
+                        CurrentQueueMemberIdx = temp.c.CurrentQueueMemberIdx,
+                        Description = temp.c.Body,
+                        Duration = temp.c.Duration,
+                        EndDate = temp.c.EndDate,
+                        Interval = temp.c.Interval,
+                        isPaused = temp.c.IsPaused,
+                        StartDate = temp.c.StartDate,
+                        Privilege = temp.c.OwnerId == user.Id ? "Owner" : temp.cm.IsAdmin ? "Admin" : "Member"
+                    }).ToArrayAsync(token));
     }
 
     public async Task<Result<ICollection<ChoreLog>>> GetAssociatedLogsByIdAsync

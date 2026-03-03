@@ -47,13 +47,18 @@ public partial class MainWindowViewModel : ViewModelBase
             createChoreViewModel.SettingsViewModel.OnCloseSettingsRequested += CloseAndResetFloatingView;
             createChoreViewModel.PopupViewModel.OnPopupRead += OnPopupRead;
         };
-        myChoresViewModel.OnChoreManagementViewOpenRequested += id =>
+        myChoresViewModel.OnChoreManagementViewOpenRequested += chore =>
         {
             var managementView = App.Current.Services?.GetService<ChoreManagementViewModel>();
-            managementView.Initialize(id);
             FloatingView = managementView;
+            managementView.Initialize(chore);
             IsFloatingViewVisible = true;
             managementView.ChoreSettingsViewModel.OnCloseSettingsRequested += CloseAndResetFloatingView;
+            managementView.OnChoreDeletionComplete += result =>
+            {
+                Console.WriteLine("should close now");
+                CloseAndResetFloatingView();
+            };
         };
         CurrentView = this.connectionViewModel;
     }

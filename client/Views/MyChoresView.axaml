@@ -29,14 +29,14 @@
                 <ListBox.ItemTemplate>
                     <DataTemplate>
                         <Panel>
-                            <TextBlock Text="{Binding ChoreName}" VerticalAlignment="Center" Margin="10 0"/>
+                            <TextBlock Text="{Binding Title}" VerticalAlignment="Center" Margin="10 0"/>
                             <DockPanel VerticalAlignment="Center"
                                        HorizontalAlignment="Right">
                                 <TextBlock Text="{Binding Privilege}" 
                                            VerticalAlignment="Center"/>
                                 <Button VerticalAlignment="Center" Margin="10 0" 
                                         Command="{Binding $parent[UserControl].((vm:MyChoresViewModel)DataContext).OpenChoreManagementViewCommand}"
-                                        CommandParameter="{Binding ChoreId}">Manage</Button>
+                                        CommandParameter="{Binding}">Manage</Button>
                             </DockPanel>
                         </Panel>
                     </DataTemplate>

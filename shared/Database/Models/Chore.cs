@@ -32,3 +32,17 @@ public class Chore
     [JsonIgnore] public ICollection<ChoreQueue> QueueItems { get; set; } = new List<ChoreQueue>();
     [JsonIgnore] public ICollection<ChoreLog> Logs { get; set; } = new List<ChoreLog>();
 }
+
+public struct ChoreDto
+{
+    public int ChoreId { get; set; }
+    public string Title { get; set; }
+    public string? Description { get; set; }
+    public string Privilege { get; set; }
+    public bool isPaused { get; set; }
+    public int? CurrentQueueMemberIdx { get; set; }
+    public DateTime StartDate { get; set; }
+    public DateTime? EndDate { get; set; }
+    public TimeSpan Duration { get; set; }
+    public TimeSpan Interval { get; set; }
+}

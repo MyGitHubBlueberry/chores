@@ -15,9 +15,9 @@ namespace client.ViewModels;
 public partial class MyChoresViewModel : ViewModelBase
 {
     public event Action OnCreateChoreViewOpenRequested;
-    public event Action<int> OnChoreManagementViewOpenRequested;
+    public event Action<ChoreDto> OnChoreManagementViewOpenRequested;
     [ObservableProperty]
-    private ObservableCollection<ChoreMemberData> chores;
+    private ObservableCollection<ChoreDto> chores;
 
     private readonly MyChoresModel model;
     private readonly UserSessionStore session;
@@ -29,7 +29,7 @@ public partial class MyChoresViewModel : ViewModelBase
         {
             Dispatcher.UIThread.Post(() => 
             {
-                Chores = new ObservableCollection<ChoreMemberData>(newData);
+                Chores = new ObservableCollection<ChoreDto>(newData);
             });
         });
     }
@@ -59,9 +59,9 @@ public partial class MyChoresViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private void OpenChoreManagementView(int id)
+    private void OpenChoreManagementView(ChoreDto chore)
     {
         //todo set id to the view
-        OnChoreManagementViewOpenRequested?.Invoke(id);
+        OnChoreManagementViewOpenRequested?.Invoke(chore);
     }
 }
