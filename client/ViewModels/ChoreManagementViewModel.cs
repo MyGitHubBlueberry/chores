@@ -22,30 +22,28 @@ public partial class ChoreManagementViewModel : ViewModelBase
         this.client = client;
         this.session = session;
         this.choreSettingsViewModel = choreSettingsViewModel;
-
     }
 
     public void Initialize(ChoreDto chore)
     {
         model = new(client, chore);
-        choreSettingsViewModel.PreviousChore = chore;
-        choreSettingsViewModel.ChoreName = chore.Title;
-        choreSettingsViewModel.Description = chore.Description;
-        choreSettingsViewModel.StartMDY = chore.StartDate;
-        choreSettingsViewModel.StartHM =
+        ChoreSettingsViewModel.PreviousChore = chore;
+        ChoreSettingsViewModel.ChoreName = chore.Title;
+        ChoreSettingsViewModel.Description = chore.Description;
+        ChoreSettingsViewModel.StartMDY = chore.StartDate;
+        ChoreSettingsViewModel.StartHM =
             TimeSpan.FromHours(chore.StartDate.Hour) + TimeSpan.FromMinutes(chore.StartDate.Minute);
         if (chore.EndDate.HasValue)
         {
-            choreSettingsViewModel.EndHM = TimeSpan.FromHours(chore.EndDate.Value.Hour) + TimeSpan.FromMinutes(chore.EndDate.Value.Minute);
-            choreSettingsViewModel.EndMDY = chore.EndDate.Value.Date;
+            ChoreSettingsViewModel.EndMDY = chore.EndDate.Value.Date;
+            ChoreSettingsViewModel.EndHM = TimeSpan.FromHours(chore.EndDate.Value.Hour) + TimeSpan.FromMinutes(chore.EndDate.Value.Minute);
         }
-
-        choreSettingsViewModel.IntervalDay = chore.Interval.Days;
-        choreSettingsViewModel.IntervalHour = chore.Interval.Hours;
-        choreSettingsViewModel.IntervalMinute = chore.Interval.Minutes;
-        choreSettingsViewModel.EntryDurationDay = chore.Duration.Days;
-        choreSettingsViewModel.EntryDurationHour = chore.Duration.Hours;
-        choreSettingsViewModel.EntryDurationMinute = chore.Duration.Minutes;
+        ChoreSettingsViewModel.IntervalDay = chore.Interval.Days;
+        ChoreSettingsViewModel.IntervalHour = chore.Interval.Hours;
+        ChoreSettingsViewModel.IntervalMinute = chore.Interval.Minutes;
+        ChoreSettingsViewModel.EntryDurationDay = chore.Duration.Days;
+        ChoreSettingsViewModel.EntryDurationHour = chore.Duration.Hours;
+        ChoreSettingsViewModel.EntryDurationMinute = chore.Duration.Minutes;
     }
 
     [RelayCommand]

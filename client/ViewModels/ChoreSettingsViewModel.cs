@@ -13,7 +13,7 @@ namespace client.ViewModels;
 public partial class ChoreSettingsViewModel : ViewModelBase 
 {
     public event Action OnCloseSettingsRequested;
-    public ChoreDto? PreviousChore { get; set; }
+
 
     public DateTime? StartDate => StartMDY?.Date + StartHM;
 
@@ -36,7 +36,7 @@ public partial class ChoreSettingsViewModel : ViewModelBase
     private Result? isChoreNameUnique = null;
     [ObservableProperty] private string description;
     
-    [CustomValidation(typeof(ChoreSettingsViewModel), nameof(DateIsNotInThePast))]
+    [CustomValidation(typeof(ChoreSettingsViewModel), nameof(StartDateNotInThePast))]
     [NotifyDataErrorInfo]
     [ObservableProperty] private DateTimeOffset? startMDY;
     [CustomValidation(typeof(ChoreSettingsViewModel), nameof(StartTimeIsNotInThePast))]
@@ -56,6 +56,8 @@ public partial class ChoreSettingsViewModel : ViewModelBase
     [ObservableProperty] private int intervalDay;
     [ObservableProperty] private int intervalHour;
     [ObservableProperty] private int intervalMinute;
+    
+    [ObservableProperty] private ChoreDto? previousChore;
 
     private readonly ChoreSettingsModel model;
 
@@ -78,7 +80,14 @@ public partial class ChoreSettingsViewModel : ViewModelBase
     {
         OnCloseSettingsRequested.Invoke();
     }
-    
+
+    public static ValidationResult StartDateNotInThePast(DateTimeOffset? offset, ValidationContext ctx)
+    {
+        var instance = (ChoreSettingsViewModel)ctx.ObjectInstance;
+        if (instance.PreviousChore is not null)
+            return ValidationResult.Success!;
+        return DateIsNotInThePast(offset, ctx);
+    }
     public static ValidationResult DateIsNotInThePast(DateTimeOffset? offset, ValidationContext ctx)
     {
         if (offset is null)

@@ -30,8 +30,8 @@ public partial class App : Application
         collection.AddSingleton<MyChoresViewModel>();
         collection.AddSingleton<ConnectionViewModel>();
         collection.AddSingleton<HomeViewModel>();
-        collection.AddSingleton<CreateChoreViewModel>();
-        collection.AddScoped<ChoreSettingsViewModel>();
+        collection.AddTransient<CreateChoreViewModel>();
+        collection.AddTransient<ChoreSettingsViewModel>();
         collection.AddSingleton<CreateChorePopupViewModel>();
         collection.AddTransient<ChoreManagementViewModel>();
         Services = collection.BuildServiceProvider();
