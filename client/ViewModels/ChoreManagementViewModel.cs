@@ -28,9 +28,24 @@ public partial class ChoreManagementViewModel : ViewModelBase
     public void Initialize(ChoreDto chore)
     {
         model = new(client, chore);
-        choreSettingsViewModel.PreviousChoreName = chore.Title;
+        choreSettingsViewModel.PreviousChore = chore;
         choreSettingsViewModel.ChoreName = chore.Title;
         choreSettingsViewModel.Description = chore.Description;
+        choreSettingsViewModel.StartMDY = chore.StartDate;
+        choreSettingsViewModel.StartHM =
+            TimeSpan.FromHours(chore.StartDate.Hour) + TimeSpan.FromMinutes(chore.StartDate.Minute);
+        if (chore.EndDate.HasValue)
+        {
+            choreSettingsViewModel.EndHM = TimeSpan.FromHours(chore.EndDate.Value.Hour) + TimeSpan.FromMinutes(chore.EndDate.Value.Minute);
+            choreSettingsViewModel.EndMDY = chore.EndDate.Value.Date;
+        }
+
+        choreSettingsViewModel.IntervalDay = chore.Interval.Days;
+        choreSettingsViewModel.IntervalHour = chore.Interval.Hours;
+        choreSettingsViewModel.IntervalMinute = chore.Interval.Minutes;
+        choreSettingsViewModel.EntryDurationDay = chore.Duration.Days;
+        choreSettingsViewModel.EntryDurationHour = chore.Duration.Hours;
+        choreSettingsViewModel.EntryDurationMinute = chore.Duration.Minutes;
     }
 
     [RelayCommand]

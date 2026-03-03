@@ -5,6 +5,7 @@ using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Networking;
+using Shared.Database.Models;
 using Shared.Networking;
 
 namespace client.ViewModels;
@@ -12,7 +13,7 @@ namespace client.ViewModels;
 public partial class ChoreSettingsViewModel : ViewModelBase 
 {
     public event Action OnCloseSettingsRequested;
-    public string? PreviousChoreName = null;
+    public ChoreDto? PreviousChore { get; set; }
 
     public DateTime? StartDate => StartMDY?.Date + StartHM;
 
@@ -78,7 +79,7 @@ public partial class ChoreSettingsViewModel : ViewModelBase
         OnCloseSettingsRequested.Invoke();
     }
     
-    public static ValidationResult DateIsNotInThePast(DateTimeOffset? offset)
+    public static ValidationResult DateIsNotInThePast(DateTimeOffset? offset, ValidationContext ctx)
     {
         if (offset is null)
             return ValidationResult.Success!;
@@ -92,8 +93,9 @@ public partial class ChoreSettingsViewModel : ViewModelBase
         var instance = (ChoreSettingsViewModel)ctx.ObjectInstance;
         if (instance.StartMDY is null)
             return ValidationResult.Success!;
-        
         if (time is null)
+            return ValidationResult.Success!;
+        if (instance.PreviousChore is not null)
             return ValidationResult.Success!;
 
         return instance.StartDate > DateTime.UtcNow 
@@ -132,7 +134,7 @@ public partial class ChoreSettingsViewModel : ViewModelBase
         
         var instance = (ChoreSettingsViewModel)ctx.ObjectInstance;
         
-        if (instance.PreviousChoreName is not null && name == instance.PreviousChoreName)
+        if (instance.PreviousChore is not null && name == instance.PreviousChore?.Title)
             return ValidationResult.Success!;
 
         if (instance.isChoreNameUnique is null)

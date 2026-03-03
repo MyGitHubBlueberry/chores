@@ -27,7 +27,7 @@
                  Text="{Binding Description}">
         </TextBox>
         <TextBlock>Start date and time:</TextBlock>
-        <StackPanel Orientation="Horizontal" Margin="0 10">
+        <StackPanel Orientation="Horizontal" Margin="0 10" IsEnabled="{Binding Path=PreviousChore, Converter={x:Static ObjectConverters.IsNull}}">
             <DatePicker x:Name="StartDatePicker" 
                         SelectedDate="{Binding StartMDY}"/>
             <TimePicker ClockIdentifier="24HourClock"
@@ -67,25 +67,22 @@
             <TextBlock VerticalAlignment="Center">Days:</TextBlock>
             <NumericUpDown Margin="10  0"
                            Minimum="0" Maximum="6"
-                           Value="0"
-                           FormatString="0"
-                           Text="{Binding EntryDurationDay}">
+                           Value="{Binding EntryDurationDay}"
+                           FormatString="0">
             </NumericUpDown>
             <TextBlock VerticalAlignment="Center">Hours:</TextBlock>
             <NumericUpDown Margin="10  0"
                            Minimum="0"
                            Maximum="23"
-                           Value="0"
-                           FormatString="0"
-                           Text="{Binding EntryDurationHour}">
+                           Value="{Binding EntryDurationHour}"
+                           FormatString="0">
             </NumericUpDown>
             <TextBlock VerticalAlignment="Center">Minutes:</TextBlock>
             <NumericUpDown Margin="10  0"
                            Minimum="0"
                            Maximum="59"
-                           Value="0"
-                           FormatString="0"
-                           Text="{Binding EntryDurationMinute}">
+                           Value="{Binding EntryDurationMinute}"
+                           FormatString="0">
             </NumericUpDown>
         </StackPanel>
         <TextBlock>Interval between chore entries:</TextBlock>
@@ -93,60 +90,23 @@
             <TextBlock VerticalAlignment="Center">Days:</TextBlock>
             <NumericUpDown Margin="10  0"
                            Minimum="0" Maximum="6"
-                           Value="0"
-                           FormatString="0"
-                           Text="{Binding IntervalDay}">
+                           Value="{Binding IntervalDay}"
+                           FormatString="0">
             </NumericUpDown>
             <TextBlock VerticalAlignment="Center">Hours:</TextBlock>
             <NumericUpDown Margin="10  0"
                            Minimum="0"
                            Maximum="23"
-                           Value="0"
-                           FormatString="0"
-                           Text="{Binding IntervalHour}">
+                           Value="{Binding IntervalHour}"
+                           FormatString="0">
             </NumericUpDown>
             <TextBlock VerticalAlignment="Center">Minutes:</TextBlock>
             <NumericUpDown Margin="10  0"
                            Minimum="0"
                            Maximum="59"
-                           Value="0"
-                           FormatString="0"
-                           Text="{Binding IntervalMinute}">
+                           Value="{Binding IntervalMinute}"
+                           FormatString="0">
             </NumericUpDown>
         </StackPanel>
-        <!-- <Expander DockPanel.Dock="Top" HorizontalAlignment="Stretch" Margin="10"> -->
-        <!--     <Expander.Header> -->
-        <!--         <Panel> -->
-        <!--             <TextBlock VerticalAlignment="Center">Members:</TextBlock> -->
-        <!--             <Button HorizontalAlignment="Right">Add Member</Button> -->
-        <!--         </Panel> -->
-        <!--     </Expander.Header> -->
-        <!--     <ScrollViewer DockPanel.Dock="Top"> -->
-        <!--         <StackPanel> -->
-        <!--             <views:MemberEntryView></views:MemberEntryView> -->
-        <!--             <views:MemberEntryView></views:MemberEntryView> -->
-        <!--             <views:MemberEntryView></views:MemberEntryView> -->
-        <!--             <views:MemberEntryView></views:MemberEntryView> -->
-        <!--             <views:MemberEntryView></views:MemberEntryView> -->
-        <!--         </StackPanel> -->
-        <!--     </ScrollViewer> -->
-        <!-- </Expander> -->
-        <!-- <Expander DockPanel.Dock="Top" HorizontalAlignment="Stretch" Margin="10 0 10 0"> -->
-        <!--     <Expander.Header> -->
-        <!--         <Panel> -->
-        <!--             <TextBlock VerticalAlignment="Center">Queue:</TextBlock> -->
-        <!--             <Button HorizontalAlignment="Right">Add Member</Button> -->
-        <!--         </Panel> -->
-        <!--     </Expander.Header> -->
-        <!--     <ScrollViewer DockPanel.Dock="Top"> -->
-        <!--         <StackPanel> -->
-        <!--             <views:QueueEntryView></views:QueueEntryView> -->
-        <!--             <views:QueueEntryView></views:QueueEntryView> -->
-        <!--             <views:QueueEntryView></views:QueueEntryView> -->
-        <!--             <views:QueueEntryView></views:QueueEntryView> -->
-        <!--             <views:QueueEntryView></views:QueueEntryView> -->
-        <!--         </StackPanel> -->
-        <!--     </ScrollViewer> -->
-        <!-- </Expander> -->
     </StackPanel>
 </UserControl>
